@@ -1,0 +1,128 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- // GUI Creation //
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "VisualKickGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 300, 0, 150)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundTransparency = 1
+Title.Text = "Kick GUI"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+local TargetInput = Instance.new("TextBox")
+TargetInput.Name = "TargetInput"
+TargetInput.Size = UDim2.new(0.8, 0, 0, 35)
+TargetInput.Position = UDim2.new(0.1, 0, 0.4, 0)
+TargetInput.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+TargetInput.Text = ""
+TargetInput.PlaceholderText = "Enter Target"
+TargetInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+TargetInput.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+TargetInput.TextSize = 16
+TargetInput.Font = Enum.Font.Gotham
+TargetInput.ClearTextOnFocus = false
+TargetInput.Parent = MainFrame
+
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 6)
+InputCorner.Parent = TargetInput
+
+local ExecuteButton = Instance.new("TextButton")
+ExecuteButton.Name = "ExecuteButton"
+ExecuteButton.Size = UDim2.new(0.8, 0, 0, 35)
+ExecuteButton.Position = UDim2.new(0.1, 0, 0.7, 0)
+ExecuteButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ExecuteButton.Text = "Remove Target"
+ExecuteButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecuteButton.TextSize = 16
+ExecuteButton.Font = Enum.Font.GothamBold
+ExecuteButton.AutoButtonColor = true
+ExecuteButton.Parent = MainFrame
+
+local ButtonCorner = Instance.new("UICorner")
+ButtonCorner.CornerRadius = UDim.new(0, 6)
+ButtonCorner.Parent = ExecuteButton
+
+-- // Cross-Device Dragging Logic //
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+	local delta = input.Position - dragStart
+	MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+MainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+		
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		update(input)
+	end
+end)
+
+-- // Target Finding & Visual Kick Logic //
+local function getTargetPlayer(partialName)
+	local lowerInput = string.lower(partialName)
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			if string.find(string.lower(player.DisplayName), lowerInput) or string.find(string.lower(player.Name), lowerInput) then
+				return player
+			end
+		end
+	end
+	return nil
+end
+
+ExecuteButton.MouseButton1Click:Connect(function()
+	local inputText = TargetInput.Text
+	if inputText == "" then return end
+	
+	local target = getTargetPlayer(inputText)
+	
+	if target then
+		-- Remove the character from the workspace visually
+		if target.Character then
+			target.Cha
