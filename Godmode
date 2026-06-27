@@ -1,0 +1,124 @@
+--// GodMode Script
+local player = game.Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "GodModeGUI"
+gui.ResetOnSpawn = false
+gui.Parent = game:GetService("CoreGui")
+
+--// Frame utama (Squircle Style)
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 230, 0, 230)
+frame.Position = UDim2.new(0.35, 0, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(200, 255, 200)
+frame.BackgroundTransparency = 0.1
+frame.Active = true
+frame.Draggable = true
+frame.Visible = true
+frame.ClipsDescendants = true
+
+-- UI Corner (squircle effect)
+local corner = Instance.new("UICorner", frame)
+corner.CornerRadius = UDim.new(0, 20)
+
+-- UI Stroke (border halus)
+local stroke = Instance.new("UIStroke", frame)
+stroke.Color = Color3.fromRGB(50, 180, 50)
+stroke.Thickness = 2
+
+--// Butang Tutup
+local closeBtn = Instance.new("TextButton", frame)
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.Text = "✖"
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(1, 0)
+
+--// Tombol buka balik GUI
+local reopenBtn = Instance.new("TextButton", gui)
+reopenBtn.Size = UDim2.new(0, 40, 0, 40)
+reopenBtn.Position = UDim2.new(0, 10, 0, 10)
+reopenBtn.Text = "☰"
+reopenBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+reopenBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+reopenBtn.Visible = false
+Instance.new("UICorner", reopenBtn).CornerRadius = UDim.new(1, 0)
+
+--// Fungsi animasi fade
+local function fade(object, targetTransparency, duration)
+	local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local tween = TweenService:Create(object, tweenInfo, {BackgroundTransparency = targetTransparency})
+	tween:Play()
+	return tween
+end
+
+--// Tutup GUI (fade out)
+closeBtn.MouseButton1Click:Connect(function()
+	local fadeOut = fade(frame, 1, 0.4)
+	for _, child in pairs(frame:GetDescendants()) do
+		if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+			TweenService:Create(child, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
+		end
+	end
+	fadeOut.Completed:Connect(function()
+		frame.Visible = false
+		reopenBtn.Visible = true
+		frame.BackgroundTransparency = 0.1
+		for _, child in pairs(frame:GetDescendants()) do
+			if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+				child.TextTransparency = 0
+			end
+		end
+	end)
+end)
+
+--// Buka GUI (fade in)
+reopenBtn.MouseButton1Click:Connect(function()
+	frame.Visible = true
+	reopenBtn.Visible = false
+	frame.BackgroundTransparency = 1
+	for _, child in pairs(frame:GetDescendants()) do
+		if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+			child.TextTransparency = 1
+		end
+	end
+	local fadeIn = fade(frame, 0.1, 0.4)
+	for _, child in pairs(frame:GetDescendants()) do
+		if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+			TweenService:Create(child, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
+		end
+	end
+end)
+
+--// Butang GodMode
+local godBtn = Instance.new("TextButton", frame)
+godBtn.Size = UDim2.new(0, 200, 0, 30)
+godBtn.Position = UDim2.new(0, 15, 0, 40)
+godBtn.Text = "God Mode: OFF"
+godBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+godBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", godBtn)
+
+local godOn = false
+godBtn.MouseButton1Click:Connect(function()
+	godOn = not godOn
+	if godOn then
+		godBtn.Text = "God Mode: ON"
+		godBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+		local char = player.Character
+		if char then
+			char.Humanoid:GetPropertyChangedSignal("Health"):Connect(function()
+				char.Humanoid.Health = char.Humanoid.MaxHealth
+			end)
+		end
+	else
+		godBtn.Text = "God Mode: OFF"
+		godBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+	end
+end)
+
+--// TextBox untuk Key
+local keyBox = Instance.new("TextBox", frame)
+keyBox.Size = UDim2.n
