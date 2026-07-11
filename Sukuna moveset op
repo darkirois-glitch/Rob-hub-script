@@ -1,0 +1,72 @@
+-- SUKUNA FULL MOVESET (NO VISUALS / INSTANT DAMAGE CHOPPER)
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Skills = {}
+
+-- 1. DISMANTLE (Long-range slashing attack with massive fixed damage)
+function Skills.Dismantle(attacker, directionCFrame)
+    local char = attacker.Character
+    if not char then return end
+    
+    local hitbox = Instance.new("Part")
+    hitbox.Size = Vector3.new(20, 15, 40) -- Wide slash zone in front
+    hitbox.CFrame = directionCFrame * CFrame.new(0, 0, -20)
+    hitbox.Anchored = true
+    hitbox.CanCollide = false
+    hitbox.Transparency = 1 -- Guaranteed no visuals
+    hitbox.Parent = workspace
+    
+    for _, part in ipairs(workspace:GetPartsInPart(hitbox)) do
+        local targetChar = part.Parent
+        local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+        if targetHum and targetChar ~= char then
+            targetHum:TakeDamage(100) -- Fatal or one-shot critical damage
+        end
+    end
+    hitbox:Destroy()
+end
+
+-- 2. CLEAVE (Close-range execution slash that adjusts to the target's remaining health)
+function Skills.Cleave(attacker, targetCharacter)
+    local char = attacker.Character
+    local targetHum = targetCharacter:FindFirstChildOfClass("Humanoid")
+    
+    if targetHum and targetCharacter ~= char then
+        -- Mimics the anime mechanic: Cleave scales to cut through the target instantly
+        local currentHealth = targetHum.Health
+        targetHum:TakeDamage(currentHealth + 50) -- Ensures an immediate kill
+    end
+end
+
+-- 3. DOMAIN EXPANSION: MALEVOLENT SHRINE (200-stud radius area-of-effect, continuous slashes until death)
+function Skills.MalevolentShrine(attacker)
+    local char = attacker.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local centerPosition = root.Position
+    local duration = 5 -- Domain lasts for 5 seconds
+    local interval = 0.1 -- Attack speed frequency (slashes every 0.1 seconds)
+    
+    task.spawn(function()
+        local elapsed = 0
+        while elapsed < duration do
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= attacker and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local targetRoot = player.Character.HumanoidRootPart
+                    local targetHum = player.Character:FindFirstChildOfClass("Humanoid")
+                    
+                    -- Scans every entity within a 200-stud domain perimeter
+                    if targetHum and (targetRoot.Position - centerPosition).Magnitude <= 200 then
+                        targetHum:TakeDamage(35) -- Rapid shredding damage
+                    end
+                end
+            end
+            task.wait(interval)
+            elapsed = elapsed + interval
+        end
+    end)
+end
+
+return Skills
