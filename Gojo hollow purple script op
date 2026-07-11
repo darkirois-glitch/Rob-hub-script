@@ -1,0 +1,107 @@
+-- Gojo Hollow Purple - Loadstring Edition
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HRP = Character:WaitForChild("HumanoidRootPart")
+
+-- Configuration
+local SPEED = 75
+local MAX_DISTANCE = 200
+local MAX_SIZE = 18
+
+print("Hollow Purple Loaded! Press 'E' to activate.")
+
+-- Listen for key press (E)
+local UserInputService = game:GetService("UserInputService")
+local cooldowning = false
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.E and not cooldowning then
+        cooldowning = true
+        
+        -- 1. Create the Hollow Purple Orb
+        local purpleOrb = Instance.new("Part")
+        purpleOrb.Shape = Enum.PartType.Ball
+        purpleOrb.Color = Color3.fromRGB(148, 0, 211) -- Deep Purple
+        purpleOrb.Material = Enum.Material.Neon
+        purpleOrb.Size = Vector3.new(1, 1, 1)
+        purpleOrb.Position = HRP.Position + (HRP.CFrame.LookVector * 6)
+        purpleOrb.CanCollide = false
+        purpleOrb.Anchored = true
+        purpleOrb.Parent = workspace
+
+        -- Add Aura Particles
+        local att = Instance.new("Attachment", purpleOrb)
+        local particles = Instance.new("ParticleEmitter", att)
+        particles.Color = ColorSequence.new(Color3.fromRGB(255, 0, 255), Color3.fromRGB(75, 0, 130))
+        particles.Size = NumberSequence.new(2, 5)
+        particles.Rate = 70
+        particles.Speed = NumberRange.new(5, 15)
+
+        -- 2. Charging Phase (Grows larger)
+        local chargeTween = TweenService:Create(purpleOrb, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = Vector3.new(MAX_SIZE, MAX_SIZE, MAX_SIZE)
+        })
+        chargeTween:Play()
+        task.wait(1.5)
+
+        -- 3. Firing Phase
+        purpleOrb.Anchored = false
+        
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Velocity = HRP.CFrame.LookVector * SPEED
+        bv.Parent = purpleOrb
+
+        -- 4. Hitbox & Kill Logic (Simulated via Local Touch Reallocation)
+        local hitList = {}
+        hitList[Character.Name] = true
+
+        local connection
+        connection = purpleOrb.Touched:Connect(function(hit)
+            local targetChar = hit.Parent
+            local targetHumanoid = targetChar:FindFirstChildOfClass("Humanoid")
+            local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+
+            if targetHumanoid and targetHRP and not hitList[targetChar.Name] then
+                hitList[targetChar.Name] = true
+                
+                -- Force damage/kill (Works if network ownership allows or tool is held)
+                targetHumanoid.Health = 0 
+                
+                -- Disintegrate visual effect
+                for _, part in pairs(targetChar:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.Velocity = Vector3.new(0, 50, 0)
+                        part.Color = Color3.fromRGB(138, 43, 226)
+                        part.Material = Enum.Material.Neon
+                    end
+                end
+            end
+        end)
+
+        -- Travel timeout
+        task.wait(MAX_DISTANCE / SPEED)
+        
+        -- Explode & Cleanup
+        connection:Disconnect()
+        purpleOrb.Anchored = true
+        
+        local explodeTween = TweenService:Create(purpleOrb, TweenInfo.new(0.4), {
+            Size = purpleOrb.Size * 2,
+            Transparency = 1
+        })
+        explodeTween:Play()
+        
+        Debris:AddItem(purpleOrb, 0.4)
+        
+        -- Cooldown timer
+        task.wait(4)
+        cooldowning = false
+    end
+end)
