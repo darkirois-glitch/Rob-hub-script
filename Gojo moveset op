@@ -1,0 +1,124 @@
+-- GOJO SATORU FULL MOVESET (NO VISUALS / PURE HITBOX & DAMAGE)
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+
+local GojoSkills = {}
+
+-- 1. LAPSE: BLUE (Pulls targets closer and crushes them)
+function GojoSkills.CursedTechniqueBlue(attacker, targetCFrame)
+    local char = attacker.Character
+    local attackerRoot = char and char:FindFirstChild("HumanoidRootPart")
+    if not attackerRoot then return end
+    
+    local hitbox = Instance.new("Part")
+    hitbox.Size = Vector3.new(30, 30, 30)
+    hitbox.CFrame = targetCFrame
+    hitbox.Anchored = true
+    hitbox.CanCollide = false
+    hitbox.Transparency = 1 -- No visual
+    hitbox.Parent = workspace
+    
+    for _, part in ipairs(workspace:GetPartsInPart(hitbox)) do
+        local targetChar = part.Parent
+        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+        local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+        
+        if targetHum and targetChar ~= char then
+            -- Forcefully pull target toward the Blue center
+            targetRoot.CFrame = CFrame.new(targetCFrame.Position)
+            targetHum:TakeDamage(45) -- High crush damage
+        end
+    end
+    hitbox:Destroy()
+end
+
+-- 2. REVERSAL: RED (Launches targets far away with a heavy shockwave explosion)
+function GojoSkills.CursedTechniqueRed(attacker, directionCFrame)
+    local char = attacker.Character
+    if not char then return end
+    
+    local hitbox = Instance.new("Part")
+    hitbox.Size = Vector3.new(25, 25, 50)
+    hitbox.CFrame = directionCFrame * CFrame.new(0, 0, -25)
+    hitbox.Anchored = true
+    hitbox.CanCollide = false
+    hitbox.Transparency = 1 -- No visual
+    hitbox.Parent = workspace
+    
+    for _, part in ipairs(workspace:GetPartsInPart(hitbox)) do
+        local targetChar = part.Parent
+        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+        local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+        
+        if targetHum and targetChar ~= char then
+            -- Repel velocity simulation (Knocks them backward instantly)
+            local pushDirection = (targetRoot.Position - char.HumanoidRootPart.Position).Unit
+            targetRoot.CFrame = targetRoot.CFrame + (pushDirection * 60)
+            targetHum:TakeDamage(60)
+        end
+    end
+    hitbox:Destroy()
+end
+
+-- 3. HOLLOW PURPLE (Invisible massive deletion ray traveling forward)
+function GojoSkills.HollowPurple(attacker, launchCFrame)
+    local char = attacker.Character
+    if not char then return end
+    
+    local hitbox = Instance.new("Part")
+    hitbox.Size = Vector3.new(40, 40, 150) -- Giant collision zone
+    hitbox.CFrame = launchCFrame * CFrame.new(0, 0, -75)
+    hitbox.Anchored = true
+    hitbox.CanCollide = false
+    hitbox.Transparency = 1 -- Completely invisible deletion zone
+    hitbox.Parent = workspace
+    
+    for _, part in ipairs(workspace:GetPartsInPart(hitbox)) do
+        local targetChar = part.Parent
+        local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+        
+        if targetHum and targetChar ~= char then
+            targetHum:TakeDamage(200) -- One-shot capability to kill players instantly
+        end
+    end
+    hitbox:Destroy()
+end
+
+-- 4. DOMAIN EXPANSION: UNLIMITED VOID (250 stud radius brain freeze freeze)
+function GojoSkills.UnlimitedVoid(attacker)
+    local char = attacker.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local domainCenter = root.Position
+    local duration = 6 -- Keeps players paralyzed for 6 seconds
+    
+    task.spawn(function()
+        local elapsed = 0
+        while elapsed < duration do
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= attacker and player.Character then
+                    local targetChar = player.Character
+                    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+                    local targetHum = targetChar:FindFirstChildOfClass("Humanoid")
+                    
+                    if targetHum and targetRoot and (targetRoot.Position - domainCenter).Magnitude <= 250 then
+                        -- Inflict severe continuous brain-strain damage
+                        targetHum:TakeDamage(15) 
+                        -- Anchor them down to simulate information overload paralysis
+                        targetRoot.Anchored = true
+                        
+                        -- Unanchor them safely after domain ends
+                        task.delay(0.5, function()
+                            if targetRoot then targetRoot.Anchored = false end
+                        end)
+                    end
+                end
+            end
+            task.wait(0.5)
+            elapsed = elapsed + 0.5
+        end
+    end)
+end
+
+return GojoSkills
