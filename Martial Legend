@@ -1,0 +1,17 @@
+if not isfile("MArtist.rbxmx") then
+writefile("MArtist.rbxmx", game:HttpGet("https://github.com/ian49972/RBXMS/raw/refs/heads/main/MArtist.rbxmx"))
+end
+ 
+writefile("DFang.mp3", game:HttpGet("https://github.com/ian49972/smth/raw/refs/heads/main/DFang.mp3"))
+ 
+writefile("DFury.mp3", game:HttpGet("https://github.com/ian49972/smth/raw/refs/heads/main/DFury.mp3"))
+ 
+writefile("Blitz.mp3", game:HttpGet("https://github.com/ian49972/smth/raw/refs/heads/main/Blitz.mp3"))
+ 
+writefile("DHonor.mp3", game:HttpGet("https://github.com/ian49972/smth/raw/refs/heads/main/DHonor.mp3"))
+ 
+writefile("PCombo.mp3", game:HttpGet("https://github.com/ian49972/smth/raw/refs/heads/main/PCombo.mp3"))
+ 
+loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/SCRIPTS/refs/heads/main/PantherCombo"))()
+ 
+loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/SCRIPTS/refs/heads/main/DracoFury"))()
