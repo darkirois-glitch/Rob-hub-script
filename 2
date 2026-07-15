@@ -1,0 +1,124 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/darkirois-glitch/Rob-hub-script/refs/heads/main/Ridow9s"))()
+
+local Player = game.Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+local Camera = workspace.CurrentCamera
+
+local function startCameraShake(intensity, duration)
+	local shakeConn = RunService.RenderStepped:Connect(function()
+		local rx = (math.random() - 0.5) * intensity
+		local ry = (math.random() - 0.5) * intensity
+		local rz = (math.random() - 0.5) * (intensity * 0.75)
+		Camera.CFrame = Camera.CFrame * CFrame.Angles(rx, ry, rz)
+	end)
+
+	task.delay(duration, function()
+		if shakeConn then shakeConn:Disconnect() end
+	end)
+end
+
+local Existing = Player.Backpack:FindFirstChild("Serious Punch")
+if Existing then Existing:Destroy() end
+
+local Tool = Instance.new("Tool")
+Tool.Name = "Serious Punch"
+Tool.RequiresHandle = false
+Tool.CanBeDropped = false
+Tool.Parent = Player.Backpack
+
+local Asset = game:GetObjects(getcustomasset("Saitama.rbxmx"))[1]
+local SeriousPunchAnim = Asset:FindFirstChild("SeriousPunch", true)
+local SeriousDebrisFolder = Asset:FindFirstChild("SeriousDebris", true)
+
+local Debounce = false
+
+Tool.Activated:Connect(function()
+	if Debounce then return end
+	Debounce = true
+
+	local Character = Player.Character
+	if not Character then Debounce = false return end
+
+	local HRP = Character:FindFirstChild("HumanoidRootPart")
+	local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+	if not HRP or not RightArm then Debounce = false return end
+
+	HRP.Anchored = true
+
+	task.spawn(function()
+		task.wait(1.2)
+		local Sound = Instance.new("Sound")
+		Sound.SoundId = getcustomasset("SeriousPunch.mp3")
+		Sound.Volume = 1
+		Sound.Parent = workspace
+		Sound:Play()
+	end)
+
+	local anim = PlayKeyframeSequence(Character, SeriousPunchAnim, 1)
+ 
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/smth/refs/heads/main/SeriousCam"))()
+
+	task.wait(4)
+
+	local airAttachment = Asset:FindFirstChild("Air", true)
+	if airAttachment then
+		local clonedAir = airAttachment:Clone()
+		clonedAir.Parent = RightArm
+		clonedAir.Push.Enabled = true
+		task.delay(2, function()
+			if clonedAir and clonedAir.Parent then
+				clonedAir:Destroy()
+			end
+		end)
+	end
+
+	task.wait(1.7)
+
+	if SeriousDebrisFolder then
+		local debrisParts = {}
+		local rootCFrame = HRP.CFrame
+		local forward = rootCFrame.LookVector
+		local right = rootCFrame.RightVector
+
+		local spawnPos = rootCFrame.Position + forward * 8 + Vector3.new(0, -3, 0)
+
+		local lDebris = SeriousDebrisFolder:FindFirstChild("LDebris", true)
+		local originalCenter = lDebris and lDebris.Position or Vector3.new(0,0,0)
+
+		local rayOrigin = spawnPos + Vector3.new(0, 50, 0)
+		local rayDirection = Vector3.new(0, -100, 0)
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterDescendantsInstances = {Character}
+		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+		raycastParams.IgnoreWater = true
+
+		local rayResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+		local groundColor = BrickColor.new("Brown").Color
+		local groundMaterial = Enum.Material.Grass
+		if rayResult then
+			groundColor = rayResult.Instance.Color
+			groundMaterial = rayResult.Instance.Material
+		end
+
+		local baseAngle = math.atan2(forward.X, forward.Z)
+		local correction = math.rad(210)
+		local playerYRot = CFrame.fromEulerAnglesYXZ(0, baseAngle + correction, 0)
+
+		for _, originalPart in ipairs(SeriousDebrisFolder:GetDescendants()) do
+			if originalPart:IsA("BasePart") then
+				local clone = originalPart:Clone()
+				clone.Anchored = true
+				clone.CanCollide = false
+				clone.Transparency = 0.4
+				clone.Color = groundColor
+				clone.Material = groundMaterial
+
+				local relativeOffset = originalPart.Position - originalCenter
+				local rotatedOffset = playerYRot.Rotation * relativeOffset
+				local targetPosition = spawnPos + rotatedOffset
+				
+				c
