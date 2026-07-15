@@ -1,0 +1,132 @@
+game:GetService("StarterGui"):SetCore("SendNotification", { 
+	Title = "L0OLKIDD0";
+	Text = "Made by L0OLKIDD0";
+	Icon = "rbxthumb://type=Asset&id=91918175264782&w=150&h=150"})
+Duration = 15;
+
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local EasingStyleMap = {
+	[Enum.PoseEasingStyle.Linear]   = Enum.EasingStyle.Linear,
+	[Enum.PoseEasingStyle.Bounce]   = Enum.EasingStyle.Bounce,
+	[Enum.PoseEasingStyle.Cubic]    = Enum.EasingStyle.Cubic,
+	[Enum.PoseEasingStyle.Elastic]  = Enum.EasingStyle.Elastic,
+	[Enum.PoseEasingStyle.Constant] = Enum.EasingStyle.Linear,
+}
+
+local EasingDirectionMap = {
+	[Enum.PoseEasingDirection.In]    = Enum.EasingDirection.In,
+	[Enum.PoseEasingDirection.Out]   = Enum.EasingDirection.Out,
+	[Enum.PoseEasingDirection.InOut] = Enum.EasingDirection.InOut,
+}
+
+local PriorityValue = {
+	[Enum.AnimationPriority.Core]      = 0,
+	[Enum.AnimationPriority.Idle]      = 1,
+	[Enum.AnimationPriority.Movement]  = 2,
+	[Enum.AnimationPriority.Action]    = 3,
+	[Enum.AnimationPriority.Action2]   = 4,
+	[Enum.AnimationPriority.Action3]   = 5,
+	[Enum.AnimationPriority.Action4]   = 6,
+}
+
+local RigControllers = {}
+
+local function DestroyExistingAnimator(model)
+	if not model then return end
+	local anim = model:FindFirstChildWhichIsA("Animator")
+	if anim then anim:Destroy() return end
+
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	if hum then
+		anim = hum:FindFirstChildWhichIsA("Animator")
+		if anim then anim:Destroy() return end
+	end
+
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("Animator") then
+			desc:Destroy()
+			return
+		end
+	end
+end
+
+local function GetOrCreateController(model)
+	if RigControllers[model] then return RigControllers[model] end
+
+	local controller = { Tracks = {} }
+
+	controller.Connection = RunService.Heartbeat:Connect(function()
+		if not model or not model.Parent then
+			if controller.Connection then controller.Connection:Disconnect() end
+			RigControllers[model] = nil
+			return
+		end
+
+		local now = os.clock()
+
+		for _, track in ipairs(controller.Tracks) do
+			if track.IsPlaying then
+				local spd = track.Speed or 1
+				local delta = (now - track._lastUpdateClock) * spd
+				track._timePosition = track._timePosition + delta
+				track._lastUpdateClock = now
+
+				if track.Looped then
+					if track.Length > 0 then
+						track._timePosition = track._timePosition % track.Length
+					end
+				else
+					if track._timePosition >= track.Length then
+						track._timePosition = track.Length
+						track.IsPlaying = false
+					end
+				end
+			end
+		end
+
+		local jointContributions = {}
+
+		for _, track in ipairs(controller.Tracks) do
+			if track.IsPlaying and (track.Weight or 1) > 0 and track._jointData then
+				local timePos = track._timePosition
+				local tWeight = track.Weight or 1
+				local tPrio = PriorityValue[track.Priority] or 3
+
+				for jointName, poses in pairs(track._jointData) do
+					if #poses == 0 then continue end
+
+					local lastPose = poses[1]
+					local nextPose = poses[1]
+					for i = 1, #poses - 1 do
+						if timePos >= poses[i].time and timePos < poses[i + 1].time then
+							lastPose = poses[i]
+							nextPose = poses[i + 1]
+							break
+						end
+					end
+					if timePos >= poses[#poses].time then
+						lastPose = poses[#poses]
+						nextPose = poses[#poses]
+					end
+
+					local alpha = 0
+					if nextPose.time > lastPose.time then
+						alpha = (timePos - lastPose.time) / (nextPose.time - lastPose.time)
+					end
+
+					local eased = TweenService:GetValue(alpha,
+						EasingStyleMap[nextPose.style] or Enum.EasingStyle.Linear,
+						EasingDirectionMap[nextPose.dir] or Enum.EasingDirection.InOut)
+
+					local finalCF = lastPose.cframe:Lerp(nextPose.cframe, eased)
+
+					if not jointContributions[jointName] then
+						jointContributions[jointName] = {}
+					end
+					table.insert(jointContributions[jointName], {
+						priority = tPrio, weight = tWeight, cframe = finalCF,
+						joint = lastPose.joint, jtype = lastPose.jtype
+					})
+				end
