@@ -1,0 +1,122 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/darkirois-glitch/Rob-hub-script/refs/heads/main/Eow9s"))()
+
+local Player = game.Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+local Camera = workspace.CurrentCamera
+
+local function startCameraShake(intensity, duration)
+	local shakeConn = RunService.RenderStepped:Connect(function()
+		local rx = (math.random() - 0.5) * intensity
+		local ry = (math.random() - 0.5) * intensity
+		local rz = (math.random() - 0.5) * (intensity * 0.75)
+		Camera.CFrame = Camera.CFrame * CFrame.Angles(rx, ry, rz)
+	end)
+
+	task.delay(duration, function()
+		if shakeConn then shakeConn:Disconnect() end
+	end)--
+
+	return shakeConn
+end
+
+local Existing = Player.Backpack:FindFirstChild("TableFlip")
+if Existing then Existing:Destroy() end
+
+local Tool = Instance.new("Tool")
+Tool.Name = "TableFlip"
+Tool.RequiresHandle = false
+Tool.CanBeDropped = false
+Tool.Parent = Player.Backpack
+
+local Asset = game:GetObjects(getcustomasset("Saitama.rbxmx"))[1]
+local TableFlipAnim = Asset:FindFirstChild("TableFlip", true)
+local TableDebrisFolder = Asset:FindFirstChild("TableDebris", true)
+
+local Debounce = false
+
+Tool.Activated:Connect(function()
+	if Debounce then return end
+	Debounce = true
+
+	local Character = Player.Character
+	if not Character then Debounce = false return end
+
+	local HRP = Character:FindFirstChild("HumanoidRootPart")
+	if not HRP then Debounce = false return end
+
+	HRP.Anchored = true
+
+	task.spawn(function()
+		task.wait(0.2)
+		local Sound = Instance.new("Sound")
+		Sound.SoundId = getcustomasset("Tableflip.mp3")
+		Sound.Volume = 1
+		Sound.Parent = workspace
+		Sound:Play()
+	end)
+
+	local anim = PlayKeyframeSequence(Character, TableFlipAnim, 1)
+
+	task.wait(3.5)
+
+	if TableDebrisFolder then
+		local debrisParts = {}
+		local rootCFrame = HRP.CFrame
+		local forward = rootCFrame.LookVector
+		local right = rootCFrame.RightVector
+
+		local spawnPos = rootCFrame.Position + forward * 7 + Vector3.new(0, -3.5, 0)
+
+		local mainDebris = TableDebrisFolder:FindFirstChild("MainDebris", true)
+		local originalCenter = mainDebris and mainDebris.Position or Vector3.new(0,0,0)
+
+		local rayOrigin = spawnPos + Vector3.new(0, 50, 0)
+		local rayDirection = Vector3.new(0, -100, 0)
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterDescendantsInstances = {Character}
+		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+		raycastParams.IgnoreWater = true
+
+		local rayResult = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+		local groundColor = BrickColor.new("Brown").Color
+		local groundMaterial = Enum.Material.Grass
+		if rayResult then
+			groundColor = rayResult.Instance.Color
+			groundMaterial = rayResult.Instance.Material
+		end
+
+		local baseAngle = math.atan2(forward.X, forward.Z)
+		local correction = math.rad(-40)
+		local playerYRot = CFrame.fromEulerAnglesYXZ(0, baseAngle + correction, 0)
+
+		for _, originalPart in ipairs(TableDebrisFolder:GetDescendants()) do
+			if originalPart:IsA("BasePart") then
+				local clone = originalPart:Clone()
+				clone.Anchored = true
+				clone.CanCollide = false
+				clone.Transparency = 0.4
+				clone.Color = groundColor
+				clone.Material = groundMaterial
+
+				local relativeOffset = originalPart.Position - originalCenter
+				local rotatedOffset = playerYRot.Rotation * relativeOffset
+				local targetPosition = spawnPos + rotatedOffset
+				
+				clone.Position = targetPosition - Vector3.new(0, 15, 0)
+				
+				local originalRot = originalPart.CFrame.Rotation
+				clone.CFrame = CFrame.new(clone.Position) * (playerYRot.Rotation * originalRot)
+				
+				clone.Parent = workspace
+				table.insert(debrisParts, {Part = clone, TargetPos = targetPosition})
+			end
+		end
+
+		startCameraShake(0.08, 0.7)
+
+		for _, data in ipairs(debrisParts) do
+			local tweenInfo = TweenInfo.new(0.9, Enum.EasingStyle.Back, Enum.EasingDirection.
