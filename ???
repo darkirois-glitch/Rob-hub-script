@@ -1,0 +1,99 @@
+getgenv().RAYFIELD_SECURE = true
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "DFXCLAN V1.5",
+   Icon = 0,
+   LoadingTitle = "loading",
+   LoadingSubtitle = "by Dfx",
+   Theme = {
+      TextColor = Color3.fromRGB(240, 240, 240),
+      Background = Color3.fromRGB(10, 10, 10),
+      Topbar = Color3.fromRGB(15, 5, 5),
+      Shadow = Color3.fromRGB(5, 0, 0),
+      NotificationBackground = Color3.fromRGB(15, 5, 5),
+      NotificationActionsBackground = Color3.fromRGB(180, 0, 0),
+      TabBackground = Color3.fromRGB(50, 8, 8),
+      TabStroke = Color3.fromRGB(180, 0, 0),
+      TabBackgroundSelected = Color3.fromRGB(180, 0, 0),
+      TabTextColor = Color3.fromRGB(200, 200, 200),
+      SelectedTabTextColor = Color3.fromRGB(255, 255, 255),
+      ElementBackground = Color3.fromRGB(25, 5, 5),
+      ElementBackgroundHover = Color3.fromRGB(45, 10, 10),
+      SecondaryElementBackground = Color3.fromRGB(18, 5, 5),
+      ElementStroke = Color3.fromRGB(180, 0, 0),
+      SecondaryElementStroke = Color3.fromRGB(100, 0, 0),
+      SliderBackground = Color3.fromRGB(180, 0, 0),
+      SliderProgress = Color3.fromRGB(200, 20, 20),
+      SliderStroke = Color3.fromRGB(220, 40, 40),
+      ToggleBackground = Color3.fromRGB(20, 8, 8),
+      ToggleEnabled = Color3.fromRGB(180, 0, 0),
+      ToggleDisabled = Color3.fromRGB(80, 80, 80),
+      ToggleEnabledStroke = Color3.fromRGB(220, 0, 0),
+      ToggleDisabledStroke = Color3.fromRGB(100, 100, 100),
+      ToggleEnabledOuterStroke = Color3.fromRGB(180, 0, 0),
+      ToggleDisabledOuterStroke = Color3.fromRGB(65, 65, 65),
+      DropdownSelected = Color3.fromRGB(180, 0, 0),
+      DropdownUnselected = Color3.fromRGB(25, 8, 8),
+      InputBackground = Color3.fromRGB(20, 5, 5),
+      InputStroke = Color3.fromRGB(180, 0, 0),
+      PlaceholderColor = Color3.fromRGB(150, 80, 80)
+   },
+   ToggleUIKeybind = Enum.KeyCode.RightControl,
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false,
+   ConfigurationSaving = { Enabled = false }
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local TeleportService = game:GetService("TeleportService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local TweenService = game:GetService("TweenService")
+
+-- ============================================================
+-- HELPER FUNCTIONS
+-- ============================================================
+local function getChar()
+   return LocalPlayer.Character
+end
+
+local function getHRP()
+   local char = getChar()
+   return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function getHumanoid()
+   local char = getChar()
+   return char and char:FindFirstChildWhichIsA("Humanoid")
+end
+
+local function notify(title, content, duration)
+   Rayfield:Notify({Title = title, Content = content, Duration = duration or 5})
+end
+
+-- ============================================================
+-- TAB 1: MAIN
+-- ============================================================
+local MainTab = Window:CreateTab("Main", "zap")
+MainTab:CreateSection("Quick Actions")
+
+MainTab:CreateButton({Name = "CHAOS", Callback = function()
+   loadstring(game:HttpGet("https://pastebin.com/raw/6C8FEGZb"))()
+end})
+
+MainTab:CreateButton({Name = "Rejoin Game", Callback = function()
+   pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+end})
+
+MainTab:CreateButton({Name = "Server Hop", Callback = function()
+   pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
+end})
+
+MainTab:CreateButton({
