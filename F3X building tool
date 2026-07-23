@@ -1,0 +1,1277 @@
+--[[
+	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+-- Optimized F3X PNG Loader - Velocity Compatible + Fast Mode + Instant Mode
+-- Changes: getcustomasset support, batch processing, skip transparent pixels,
+-- parallel operations, configurable speed settings, INSTANT MODE
+
+--// SETTINGS \\--
+local SETTINGS = {
+	BATCH_SIZE = 50,
+	BATCH_DELAY = 0.03,
+	SKIP_ALPHA_BELOW = 5,
+	MAX_IMAGE_SIZE = 256,
+	DOWNSCALE_FACTOR = 1,
+	MERGE_SIMILAR_COLORS = true,
+	COLOR_THRESHOLD = 10,
+	USE_BULK_MOVE = true,
+	PART_HEIGHT_MULTIPLIER = 5,
+	FLAT_MODE = false,
+	FLAT_HEIGHT = 1,
+
+	-- INSTANT MODE SETTINGS
+	INSTANT_MODE = false,
+	INSTANT_THREADS = 100,        -- How many coroutines to spawn at once
+	INSTANT_NO_YIELD = true,      -- Skip ALL yields for maximum speed
+	INSTANT_SKIP_TRANSPARENCY = true, -- Skip transparency calls in instant mode
+	INSTANT_QUEUE_SIZE = 500,     -- How many parts to queue before forcing yield
+	INSTANT_PRECREATE_PARTS = true, -- Pre-create all parts before modifying them
+}
+
+--// EXECUTOR COMPATIBILITY \\--
+local function getasset(path)
+	if getcustomasset then
+		return getcustomasset(path)
+	elseif getsynasset then
+		return getsynasset(path)
+	end
+end
+
+local function httpget(url)
+	if syn and syn.request then
+		return syn.request({Url = url, Method = "GET"}).Body
+	elseif http and http.request then
+		return http.request({Url = url, Method = "GET"}).Body
+	elseif request then
+		return request({Url = url, Method = "GET"}).Body
+	elseif game.HttpGetAsync then
+		return game:HttpGetAsync(url)
+	end
+end
+
+if (getcustomasset or getsynasset) and writefile and listfiles and readfile and isfile and isfolder and getgenv and loadstring then
+
+	--// SERVICES \\--
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local CoreGui = game:GetService("CoreGui")
+	local LocalPlayer = Players.LocalPlayer
+
+	--// UTILITY FUNCTIONS \\--
+	local function colorDistance(c1, c2)
+		local dr = (c1.R - c2.R) * 255
+		local dg = (c1.G - c2.G) * 255
+		local db = (c1.B - c2.B) * 255
+		return math.sqrt(dr * dr + dg * dg + db * db)
+	end
+
+	local function lerp(a, b, t)
+		return a + (b - a) * t
+	end
+
+	--// TOOL FINDER \\--
+	local function gettool()
+		local tools = {}
+		local thetool
+		for _, v in pairs(LocalPlayer:GetDescendants()) do
+			if v:IsA("Tool") then
+				table.insert(tools, v)
+			end
+		end
+		if LocalPlayer.Character then
+			for _, v in pairs(LocalPlayer.Character:GetChildren()) do
+				if v:IsA("Tool") then
+					table.insert(tools, v)
+				end
+			end
+		end
+		for _, tool in pairs(tools) do
+			local handle = tool:FindFirstChild("Handle")
+			if handle then
+				local decal = handle:FindFirstChildOfClass("Decal")
+				if decal then
+					if string.find(decal.Texture, "129748355") then
+						thetool = tool
+						break
+					end
+				end
+			end
+		end
+		return thetool
+	end
+
+	--// PROGRESS BAR \\--
+	local function createProgressBar()
+		local progressGui = Instance.new("ScreenGui")
+		progressGui.Name = "PNGProgress"
+		progressGui.Parent = CoreGui
+
+		local frame = Instance.new("Frame")
+		frame.Parent = progressGui
+		frame.Size = UDim2.new(0.3, 0, 0.03, 0)
+		frame.Position = UDim2.new(0.35, 0, 0.05, 0)
+		frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+		frame.BorderSizePixel = 0
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 6)
+		corner.Parent = frame
+
+		local bar = Instance.new("Frame")
+		bar.Parent = frame
+		bar.Size = UDim2.new(0, 0, 1, 0)
+		bar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+		bar.BorderSizePixel = 0
+		bar.Name = "Bar"
+
+		local barCorner = Instance.new("UICorner")
+		barCorner.CornerRadius = UDim.new(0, 6)
+		barCorner.Parent = bar
+
+		local label = Instance.new("TextLabel")
+		label.Parent = frame
+		label.Size = UDim2.new(1, 0, 1, 0)
+		label.BackgroundTransparency = 1
+		label.TextColor3 = Color3.new(1, 1, 1)
+		label.Font = Enum.Font.SourceSansBold
+		label.TextScaled = true
+		label.Name = "Label"
+		label.Text = "0%"
+		label.ZIndex = 2
+
+		local statsLabel = Instance.new("TextLabel")
+		statsLabel.Parent = progressGui
+		statsLabel.Size = UDim2.new(0.3, 0, 0.02, 0)
+		statsLabel.Position = UDim2.new(0.35, 0, 0.08, 0)
+		statsLabel.BackgroundTransparency = 1
+		statsLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+		statsLabel.Font = Enum.Font.SourceSans
+		statsLabel.TextScaled = true
+		statsLabel.Name = "Stats"
+		statsLabel.Text = ""
+
+		local modeLabel = Instance.new("TextLabel")
+		modeLabel.Parent = progressGui
+		modeLabel.Size = UDim2.new(0.3, 0, 0.02, 0)
+		modeLabel.Position = UDim2.new(0.35, 0, 0.1, 0)
+		modeLabel.BackgroundTransparency = 1
+		modeLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+		modeLabel.Font = Enum.Font.SourceSansBold
+		modeLabel.TextScaled = true
+		modeLabel.Name = "Mode"
+		modeLabel.Text = ""
+
+		return {
+			gui = progressGui,
+			update = function(progress, current, total, elapsed, mode)
+				bar.Size = UDim2.new(math.clamp(progress, 0, 1), 0, 1, 0)
+				local percent = math.floor(progress * 100)
+				label.Text = percent .. "%"
+
+				local r = lerp(1, 0, progress)
+				local g = lerp(0, 1, progress)
+				bar.BackgroundColor3 = Color3.new(r, g, 0.2)
+
+				if elapsed and current > 0 then
+					local rate = current / elapsed
+					local remaining = (total - current) / rate
+					statsLabel.Text = string.format(
+						"%d/%d parts | %.0f parts/sec | ~%.0fs remaining",
+						current, total, rate, remaining
+					)
+				end
+
+				if mode then
+					modeLabel.Text = mode
+				end
+			end,
+			destroy = function()
+				progressGui:Destroy()
+			end
+		}
+	end
+
+	--// WARNING GUI FOR INSTANT MODE \\--
+	local function showInstantWarning(callback)
+		local warningGui = Instance.new("ScreenGui")
+		warningGui.Name = "InstantWarning"
+		warningGui.Parent = CoreGui
+
+		local bg = Instance.new("Frame")
+		bg.Parent = warningGui
+		bg.Size = UDim2.new(1, 0, 1, 0)
+		bg.BackgroundColor3 = Color3.new(0, 0, 0)
+		bg.BackgroundTransparency = 0.5
+		bg.ZIndex = 10
+
+		local panel = Instance.new("Frame")
+		panel.Parent = warningGui
+		panel.Size = UDim2.new(0, 400, 0, 250)
+		panel.Position = UDim2.new(0.5, -200, 0.5, -125)
+		panel.BackgroundColor3 = Color3.fromRGB(30, 10, 10)
+		panel.BorderSizePixel = 0
+		panel.ZIndex = 11
+
+		local panelCorner = Instance.new("UICorner")
+		panelCorner.CornerRadius = UDim.new(0, 10)
+		panelCorner.Parent = panel
+
+		local panelStroke = Instance.new("UIStroke")
+		panelStroke.Color = Color3.fromRGB(255, 50, 50)
+		panelStroke.Thickness = 2
+		panelStroke.Parent = panel
+
+		local title = Instance.new("TextLabel")
+		title.Parent = panel
+		title.Size = UDim2.new(1, 0, 0, 40)
+		title.BackgroundTransparency = 1
+		title.Text = "⚠️ INSTANT MODE WARNING ⚠️"
+		title.TextColor3 = Color3.fromRGB(255, 50, 50)
+		title.Font = Enum.Font.SourceSansBold
+		title.TextScaled = true
+		title.ZIndex = 12
+
+		local desc = Instance.new("TextLabel")
+		desc.Parent = panel
+		desc.Size = UDim2.new(1, -20, 0, 100)
+		desc.Position = UDim2.new(0, 10, 0, 45)
+		desc.BackgroundTransparency = 1
+		desc.Text = "This will:\n• FREEZE your game temporarily\n• Spam server with requests\n• Use maximum CPU/memory\n• May crash on large images\n\nYour game WILL lag heavily."
+		desc.TextColor3 = Color3.fromRGB(255, 200, 200)
+		desc.Font = Enum.Font.SourceSans
+		desc.TextScaled = true
+		desc.TextWrapped = true
+		desc.ZIndex = 12
+
+		local confirmBtn = Instance.new("TextButton")
+		confirmBtn.Parent = panel
+		confirmBtn.Size = UDim2.new(0.4, 0, 0, 40)
+		confirmBtn.Position = UDim2.new(0.05, 0, 1, -50)
+		confirmBtn.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+		confirmBtn.Text = "💀 DO IT"
+		confirmBtn.TextColor3 = Color3.new(1, 1, 1)
+		confirmBtn.Font = Enum.Font.SourceSansBold
+		confirmBtn.TextScaled = true
+		confirmBtn.ZIndex = 12
+
+		local confirmCorner = Instance.new("UICorner")
+		confirmCorner.CornerRadius = UDim.new(0, 6)
+		confirmCorner.Parent = confirmBtn
+
+		local cancelBtn = Instance.new("TextButton")
+		cancelBtn.Parent = panel
+		cancelBtn.Size = UDim2.new(0.4, 0, 0, 40)
+		cancelBtn.Position = UDim2.new(0.55, 0, 1, -50)
+		cancelBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+		cancelBtn.Text = "Cancel"
+		cancelBtn.TextColor3 = Color3.new(1, 1, 1)
+		cancelBtn.Font = Enum.Font.SourceSansBold
+		cancelBtn.TextScaled = true
+		cancelBtn.ZIndex = 12
+
+		local cancelCorner = Instance.new("UICorner")
+		cancelCorner.CornerRadius = UDim.new(0, 6)
+		cancelCorner.Parent = cancelBtn
+
+		confirmBtn.Activated:Connect(function()
+			warningGui:Destroy()
+			callback(true)
+		end)
+
+		cancelBtn.Activated:Connect(function()
+			warningGui:Destroy()
+			callback(false)
+		end)
+	end
+
+	--// PIXEL OPTIMIZER \\--
+	local function optimizePixels(imageData, width, height)
+		local pixels = {}
+		local skipped = 0
+		local merged = 0
+		local downscale = SETTINGS.DOWNSCALE_FACTOR
+
+		local newWidth = math.floor(width / downscale)
+		local newHeight = math.floor(height / downscale)
+
+		if newWidth > SETTINGS.MAX_IMAGE_SIZE then
+			local scale = SETTINGS.MAX_IMAGE_SIZE / newWidth
+			newWidth = SETTINGS.MAX_IMAGE_SIZE
+			newHeight = math.floor(newHeight * scale)
+			downscale = width / newWidth
+		end
+
+		local grid = {}
+		for y = 1, newHeight do
+			grid[y] = {}
+			for x = 1, newWidth do
+				local srcX = math.min(math.floor((x - 1) * downscale) + 1, width)
+				local srcY = math.min(math.floor((y - 1) * downscale) + 1, height)
+				local color, alpha = imageData:GetPixel(srcX, srcY)
+
+				if alpha >= SETTINGS.SKIP_ALPHA_BELOW then
+					grid[y][x] = {
+						color = color,
+						alpha = alpha,
+						x = x,
+						y = y,
+						merged = false,
+						sizeX = 1,
+						sizeZ = 1
+					}
+				else
+					skipped = skipped + 1
+				end
+			end
+		end
+
+		if SETTINGS.MERGE_SIMILAR_COLORS then
+			for y = 1, newHeight do
+				for x = 1, newWidth do
+					local pixel = grid[y][x]
+					if pixel and not pixel.merged then
+						local maxX = x
+						for nx = x + 1, newWidth do
+							local neighbor = grid[y][nx]
+							if neighbor and not neighbor.merged
+								and colorDistance(pixel.color, neighbor.color) < SETTINGS.COLOR_THRESHOLD
+								and math.abs(pixel.alpha - neighbor.alpha) < SETTINGS.COLOR_THRESHOLD then
+								maxX = nx
+							else
+								break
+							end
+						end
+
+						local maxY = y
+						local canExpand = true
+						for ny = y + 1, newHeight do
+							if not canExpand then break end
+							for cx = x, maxX do
+								local neighbor = grid[ny][cx]
+								if not neighbor or neighbor.merged
+									or colorDistance(pixel.color, neighbor.color) >= SETTINGS.COLOR_THRESHOLD
+									or math.abs(pixel.alpha - neighbor.alpha) >= SETTINGS.COLOR_THRESHOLD then
+									canExpand = false
+									break
+								end
+							end
+							if canExpand then
+								maxY = ny
+							end
+						end
+
+						local sizeX = maxX - x + 1
+						local sizeZ = maxY - y + 1
+
+						if sizeX > 1 or sizeZ > 1 then
+							for my = y, maxY do
+								for mx = x, maxX do
+									if not (mx == x and my == y) then
+										if grid[my][mx] then
+											grid[my][mx].merged = true
+											merged = merged + 1
+										end
+									end
+								end
+							end
+						end
+
+						pixel.sizeX = sizeX
+						pixel.sizeZ = sizeZ
+						pixel.x = x + (sizeX - 1) / 2
+						pixel.y = y + (sizeZ - 1) / 2
+					end
+				end
+			end
+		end
+
+		for y = 1, newHeight do
+			for x = 1, newWidth do
+				local pixel = grid[y][x]
+				if pixel and not pixel.merged then
+					table.insert(pixels, pixel)
+				end
+			end
+		end
+
+		print(string.format(
+			"[PNG Optimizer] Original: %dx%d (%d pixels) | Skipped: %d transparent | Merged: %d | Final: %d parts",
+			width, height, width * height, skipped, merged, #pixels
+		))
+
+		return pixels, newWidth, newHeight
+	end
+
+	--// ============================= \\--
+	--// INSTANT MODE ENGINE            \\--
+	--// ============================= \\--
+	local function instantBuild(pixels, ServerEndpoint, origin, offset, progressBar)
+		local totalPixels = #pixels
+		local processed = 0
+		local startTime = tick()
+		local threads = SETTINGS.INSTANT_THREADS
+		local activeThreads = 0
+		local maxThreads = threads
+		local completed = Instance.new("BindableEvent")
+		local allDone = false
+		local groupModel = ServerEndpoint:InvokeServer("CreateGroup", "Model", workspace, {})
+		ServerEndpoint:InvokeServer("SetName", {groupModel}, "_PNG_INSTANT")
+
+		progressBar.update(0, 0, totalPixels, 0, "💀 INSTANT MODE - FREEZING GAME...")
+
+		-- Phase 1: Pre-create ALL parts at once if enabled
+		local parts = {}
+		if SETTINGS.INSTANT_PRECREATE_PARTS then
+			progressBar.update(0, 0, totalPixels, 0, "💀 PHASE 1: Creating all parts...")
+
+			local createBatch = {}
+			local batchCount = 0
+
+			for i = 1, totalPixels do
+				-- Fire off part creation without waiting
+				local idx = i
+				spawn(function()
+					local part = ServerEndpoint:InvokeServer("CreatePart", "Normal", CFrame.new(), groupModel)
+					parts[idx] = part
+					batchCount = batchCount + 1
+
+					if batchCount % 200 == 0 then
+						local elapsed = tick() - startTime
+						progressBar.update(
+							batchCount / totalPixels * 0.3,
+							batchCount,
+							totalPixels,
+							elapsed,
+							string.format("💀 PHASE 1: Creating parts... %d/%d", batchCount, totalPixels)
+						)
+					end
+				end)
+
+				-- Micro yield every N parts to prevent complete freeze
+				if i % SETTINGS.INSTANT_QUEUE_SIZE == 0 then
+					RunService.Heartbeat:Wait()
+				end
+			end
+
+			-- Wait for all parts to be created
+			while batchCount < totalPixels do
+				RunService.Heartbeat:Wait()
+				local elapsed = tick() - startTime
+				progressBar.update(
+					batchCount / totalPixels * 0.3,
+					batchCount,
+					totalPixels,
+					elapsed,
+					string.format("💀 PHASE 1: Waiting for parts... %d/%d", batchCount, totalPixels)
+				)
+
+				if groupModel.Parent ~= workspace then
+					return false, 0
+				end
+			end
+
+			progressBar.update(0.3, 0, totalPixels, tick() - startTime, "💀 PHASE 2: Applying properties...")
+		end
+
+		-- Phase 2: Apply ALL properties simultaneously using massive coroutine spam
+		local phase2Start = tick()
+		processed = 0
+
+		local function processPixelInstant(index)
+			local pixel = pixels[index]
+			local color = pixel.color
+			local alpha = pixel.alpha
+
+			local v18
+			if SETTINGS.FLAT_MODE then
+				v18 = SETTINGS.FLAT_HEIGHT
+			else
+				v18 = (1 + SETTINGS.PART_HEIGHT_MULTIPLIER * (color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722)) * (alpha / 255)
+			end
+
+			local partPos = origin + offset + Vector3.new(pixel.x, v18 / 2, pixel.y)
+			local partSize = Vector3.new(pixel.sizeX, v18, pixel.sizeZ)
+			local partCFrame = CFrame.new(partPos)
+			local transparency = 1 - alpha / 255
+
+			local part = parts[index]
+			if not part then
+				part = ServerEndpoint:InvokeServer("CreatePart", "Normal", CFrame.new(), groupModel)
+			end
+
+			-- Fire ALL operations simultaneously without waiting
+			part.Position = partPos
+
+			-- Spawn separate threads for each operation - NO WAITING
+			coroutine.wrap(function()
+				pcall(function()
+					ServerEndpoint:InvokeServer("SyncMove", {{CFrame = partCFrame, Part = part}})
+				end)
+			end)()
+
+			coroutine.wrap(function()
+				pcall(function()
+					ServerEndpoint:InvokeServer("SyncResize", {{CFrame = partCFrame, Part = part, Size = partSize}})
+				end)
+			end)()
+
+			coroutine.wrap(function()
+				pcall(function()
+					ServerEndpoint:InvokeServer("SyncColor", {{Color = color, Part = part, UnionColoring = true}})
+				end)
+			end)()
+
+			if not SETTINGS.INSTANT_SKIP_TRANSPARENCY and transparency > 0 then
+				coroutine.wrap(function()
+					pcall(function()
+						ServerEndpoint:InvokeServer("SyncMaterial", {{Part = part, Transparency = transparency}})
+					end)
+				end)()
+			end
+
+			processed = processed + 1
+		end
+
+		-- SPAM ALL THREADS AT ONCE
+		local threadPool = {}
+		local threadIndex = 1
+
+		local function spawnNextBatch()
+			local batchEnd = math.min(threadIndex + maxThreads - 1, totalPixels)
+
+			for i = threadIndex, batchEnd do
+				if groupModel.Parent ~= workspace then
+					return false
+				end
+
+				coroutine.wrap(function()
+					activeThreads = activeThreads + 1
+					processPixelInstant(i)
+					activeThreads = activeThreads - 1
+				end)()
+			end
+
+			threadIndex = batchEnd + 1
+			return threadIndex <= totalPixels
+		end
+
+		-- BLAST through all pixels
+		if SETTINGS.INSTANT_NO_YIELD then
+			-- MAXIMUM SPEED: Minimal yielding
+			while threadIndex <= totalPixels do
+				if groupModel.Parent ~= workspace then
+					return false, processed
+				end
+
+				-- Spawn massive batch
+				for i = 1, maxThreads do
+					if threadIndex > totalPixels then break end
+
+					coroutine.wrap(function()
+						processPixelInstant(threadIndex)
+					end)()
+
+					threadIndex = threadIndex + 1
+				end
+
+				-- Only yield every QUEUE_SIZE to prevent COMPLETE freeze
+				if threadIndex % SETTINGS.INSTANT_QUEUE_SIZE == 0 then
+					RunService.Heartbeat:Wait()
+					local elapsed = tick() - startTime
+					local baseProgress = SETTINGS.INSTANT_PRECREATE_PARTS and 0.3 or 0
+					local remainingProgress = 1 - baseProgress
+					progressBar.update(
+						baseProgress + (processed / totalPixels) * remainingProgress,
+						processed,
+						totalPixels,
+						elapsed,
+						string.format("💀 INSTANT: %d threads | %d active", processed, activeThreads)
+					)
+				end
+			end
+		else
+			-- Slightly safer instant mode with more yields
+			while threadIndex <= totalPixels do
+				if groupModel.Parent ~= workspace then
+					return false, processed
+				end
+
+				spawnNextBatch()
+
+				-- Wait for threads to calm down
+				while activeThreads > maxThreads * 0.8 do
+					RunService.Heartbeat:Wait()
+				end
+
+				local elapsed = tick() - startTime
+				local baseProgress = SETTINGS.INSTANT_PRECREATE_PARTS and 0.3 or 0
+				local remainingProgress = 1 - baseProgress
+				progressBar.update(
+					baseProgress + (processed / totalPixels) * remainingProgress,
+					processed,
+					totalPixels,
+					elapsed,
+					string.format("💀 INSTANT: %d/%d | %d active threads", processed, totalPixels, activeThreads)
+				)
+			end
+		end
+
+		-- Wait for remaining threads to finish
+		local timeout = tick()
+		while processed < totalPixels and (tick() - timeout) < 60 do
+			RunService.Heartbeat:Wait()
+			local elapsed = tick() - startTime
+			progressBar.update(
+				processed / totalPixels,
+				processed,
+				totalPixels,
+				elapsed,
+				string.format("💀 Finishing... %d/%d | %d active", processed, totalPixels, activeThreads)
+			)
+		end
+
+		return true, processed, groupModel
+	end
+
+	--// ============================= \\--
+	--// NORMAL BUILD ENGINE             \\--
+	--// ============================= \\--
+	local function normalBuild(pixels, ServerEndpoint, origin, offset, progressBar)
+		local totalPixels = #pixels
+		local processed = 0
+		local startTime = tick()
+		local v12 = ServerEndpoint:InvokeServer("CreateGroup", "Model", workspace, {})
+		ServerEndpoint:InvokeServer("SetName", {v12}, "_PNG")
+
+		local v13 = true
+		local batchMoves = {}
+		local batchColors = {}
+		local batchResizes = {}
+		local batchMaterials = {}
+
+		for i = 1, totalPixels do
+			local pixel = pixels[i]
+
+			if v12.Parent ~= workspace then
+				v13 = false
+				break
+			end
+
+			local color = pixel.color
+			local alpha = pixel.alpha
+
+			local v18
+			if SETTINGS.FLAT_MODE then
+				v18 = SETTINGS.FLAT_HEIGHT
+			else
+				v18 = (1 + SETTINGS.PART_HEIGHT_MULTIPLIER * (color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722)) * (alpha / 255)
+			end
+
+			local v19 = ServerEndpoint:InvokeServer("CreatePart", "Normal", CFrame.new(), v12)
+			local transparency = 1 - alpha / 255
+
+			local partPos = origin + offset + Vector3.new(pixel.x, v18 / 2, pixel.y)
+			local partSize = Vector3.new(pixel.sizeX, v18, pixel.sizeZ)
+			local partCFrame = CFrame.new(partPos)
+
+			v19.Position = partPos
+
+			table.insert(batchMoves, {CFrame = partCFrame, Part = v19})
+			table.insert(batchResizes, {CFrame = partCFrame, Part = v19, Size = partSize})
+			table.insert(batchColors, {Color = color, Part = v19, UnionColoring = true})
+
+			if transparency > 0 then
+				table.insert(batchMaterials, {Part = v19, Transparency = transparency})
+			end
+
+			processed = processed + 1
+
+			if processed % SETTINGS.BATCH_SIZE == 0 or i == totalPixels then
+				if SETTINGS.USE_BULK_MOVE and #batchMoves > 0 then
+					pcall(function()
+						ServerEndpoint:InvokeServer("SyncMove", batchMoves)
+					end)
+				else
+					for _, move in pairs(batchMoves) do
+						spawn(function()
+							ServerEndpoint:InvokeServer("SyncMove", {move})
+						end)
+					end
+				end
+
+				if #batchResizes > 0 then
+					pcall(function()
+						ServerEndpoint:InvokeServer("SyncResize", batchResizes)
+					end)
+				end
+
+				if #batchColors > 0 then
+					pcall(function()
+						ServerEndpoint:InvokeServer("SyncColor", batchColors)
+					end)
+				end
+
+				if #batchMaterials > 0 then
+					pcall(function()
+						ServerEndpoint:InvokeServer("SyncMaterial", batchMaterials)
+					end)
+				end
+
+				batchMoves = {}
+				batchColors = {}
+				batchResizes = {}
+				batchMaterials = {}
+
+				local elapsed = tick() - startTime
+				progressBar.update(processed / totalPixels, processed, totalPixels, elapsed, "⚡ Normal Mode")
+
+				if SETTINGS.BATCH_DELAY > 0 then
+					task.wait(SETTINGS.BATCH_DELAY)
+				else
+					RunService.Heartbeat:Wait()
+				end
+			end
+		end
+
+		return v13, processed, v12
+	end
+
+	--// MAIN GUI SETUP \\--
+	local ScreenGui = Instance.new("ScreenGui")
+	local l__InputUrl__1 = Instance.new("TextBox")
+	local ImportImageButton = Instance.new("TextButton")
+	local ServerEndpoint = gettool():WaitForChild("SyncAPI"):WaitForChild("ServerEndpoint")
+	local CorePackagesFolder = Instance.new("Folder")
+	local PNGImporterGui = game:GetObjects("rbxassetid://11320460700")[1]
+	local FileFrame = PNGImporterGui.Frame.ScrollingFrame.File:Clone()
+	PNGImporterGui.Frame.ScrollingFrame.File:Destroy()
+	local PNGImporter_Show = false
+	PNGImporterGui.Parent = CoreGui
+	PNGImporterGui.Frame.Active = true
+	PNGImporterGui.Frame.Draggable = true
+
+	local folder_exists = isfolder("png_images")
+	local tutorialvideo_exists = isfile("pngfileloader-tutorial.png")
+	local has_saw_tutorial = isfile("hasseentutorial.txt")
+
+	local videoframe = Instance.new("ImageLabel")
+	videoframe.Parent = ScreenGui
+	videoframe.Position = UDim2.new(0.5, -568, 0.5, -319)
+	videoframe.Size = UDim2.new(0, 1136, 0, 639)
+	videoframe.BorderSizePixel = 0
+
+	if not folder_exists then
+		makefolder("png_images")
+	end
+	if not has_saw_tutorial then
+		writefile("hasseentutorial.txt", "false")
+	end
+	if not tutorialvideo_exists then
+		local success, data = pcall(function()
+			return httpget("https://github.com/Lowerrated/rbx-f3x-png-loader/raw/main/tutorial.png")
+		end)
+		if success and data then
+			writefile("pngfileloader-tutorial.png", data)
+		end
+	end
+
+	if isfile("pngfileloader-tutorial.png") then
+		videoframe.Image = getasset("pngfileloader-tutorial.png")
+		videoframe.ImageRectSize = Vector2.new(1136, 639)
+		videoframe.ScaleType = Enum.ScaleType.Fit
+	end
+
+	if readfile("hasseentutorial.txt") == "false" then
+		spawn(function()
+			task.wait(5)
+			videoframe.ImageRectOffset = Vector2.new(2272, 0)
+			task.wait(8)
+			videoframe.ImageRectOffset = Vector2.new(3408, 0)
+			task.wait(14)
+			videoframe.ImageRectOffset = Vector2.new(4544, 0)
+			task.wait(21)
+			videoframe:Destroy()
+			writefile("hasseentutorial.txt", "true")
+		end)
+	else
+		videoframe:Destroy()
+	end
+
+	--// FILE BROWSER \\--
+	local function refreshfiles()
+		local files = listfiles("png_images")
+		for _, v in pairs(PNGImporterGui.Frame.ScrollingFrame:GetChildren()) do
+			if v:IsA("TextButton") then
+				v:Destroy()
+			end
+		end
+		for _, file in pairs(files) do
+			local filewithextenstionname = string.gsub(file, "png_images" .. string.rep(string.char(92), 2), "")
+			filewithextenstionname = string.gsub(filewithextenstionname, string.char(92), "/")
+			if string.lower(string.sub(filewithextenstionname, string.len(filewithextenstionname) - 3, string.len(filewithextenstionname))) == ".png" then
+				local frame = FileFrame:Clone()
+				frame.Parent = PNGImporterGui.Frame.ScrollingFrame
+				frame.Image.TextLabel.Text = string.sub(filewithextenstionname, 1, string.len(filewithextenstionname) - 4)
+				frame.Image.Image = getasset("png_images/" .. string.gsub(filewithextenstionname, "png_images/", ""))
+				frame.Activated:Connect(function()
+					l__InputUrl__1.Text = "file:///" .. filewithextenstionname
+				end)
+			end
+		end
+	end
+
+	refreshfiles()
+	CorePackagesFolder.Name = "PNGLoaderModule"
+	ScreenGui.Parent = CoreGui
+
+	LocalPlayer.CharacterAdded:Connect(function()
+		task.wait(1)
+		local tool = gettool()
+		if tool then
+			ServerEndpoint = tool:WaitForChild("SyncAPI"):WaitForChild("ServerEndpoint")
+		end
+	end)
+
+	getgenv().pngmodule = CorePackagesFolder
+
+	--// INPUT URL BAR \\--
+	l__InputUrl__1.Parent = ScreenGui
+	l__InputUrl__1.Size = UDim2.new(1, 0, 0.025, 0)
+	l__InputUrl__1.BackgroundColor3 = Color3.fromRGB(31, 31, 31)
+	l__InputUrl__1.Font = Enum.Font.SourceSansBold
+	l__InputUrl__1.TextScaled = true
+	l__InputUrl__1.PlaceholderText = "Paste the URL to a PNG file here."
+	l__InputUrl__1.Name = "InputUrl"
+	l__InputUrl__1.TextColor3 = Color3.fromRGB(0, 0, 0)
+	l__InputUrl__1.AnchorPoint = Vector2.new(0, 1)
+	l__InputUrl__1.Position = UDim2.new(0, 0, 1, 0)
+	l__InputUrl__1.Text = ""
+	l__InputUrl__1.ClearTextOnFocus = false
+
+	--// SETTINGS BUTTON \\--
+	local SettingsButton = Instance.new("TextButton")
+	SettingsButton.Parent = l__InputUrl__1
+	SettingsButton.Text = "⚙"
+	SettingsButton.Size = UDim2.new(0, 20, 0, workspace.CurrentCamera.ViewportSize.Y * 0.025)
+	SettingsButton.ZIndex = 2
+	SettingsButton.AnchorPoint = Vector2.new(1, 0)
+	SettingsButton.Position = UDim2.new(1, -22, 0, -20)
+	SettingsButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	SettingsButton.TextColor3 = Color3.new(1, 1, 1)
+	SettingsButton.Font = Enum.Font.SourceSansBold
+	SettingsButton.TextScaled = true
+
+	--// INSTANT MODE BUTTON \\--
+	local InstantButton = Instance.new("TextButton")
+	InstantButton.Parent = l__InputUrl__1
+	InstantButton.Text = "💀"
+	InstantButton.Size = UDim2.new(0, 20, 0, workspace.CurrentCamera.ViewportSize.Y * 0.025)
+	InstantButton.ZIndex = 2
+	InstantButton.AnchorPoint = Vector2.new(1, 0)
+	InstantButton.Position = UDim2.new(1, -44, 0, -20)
+	InstantButton.BackgroundColor3 = SETTINGS.INSTANT_MODE and Color3.fromRGB(200, 30, 30) or Color3.fromRGB(50, 50, 50)
+	InstantButton.TextColor3 = Color3.new(1, 1, 1)
+	InstantButton.Font = Enum.Font.SourceSansBold
+	InstantButton.TextScaled = true
+
+	InstantButton.Activated:Connect(function()
+		SETTINGS.INSTANT_MODE = not SETTINGS.INSTANT_MODE
+		InstantButton.BackgroundColor3 = SETTINGS.INSTANT_MODE and Color3.fromRGB(200, 30, 30) or Color3.fromRGB(50, 50, 50)
+
+		if SETTINGS.INSTANT_MODE then
+			l__InputUrl__1.PlaceholderText = "💀 INSTANT MODE ON - Paste URL here"
+			l__InputUrl__1.BackgroundColor3 = Color3.fromRGB(50, 20, 20)
+		else
+			l__InputUrl__1.PlaceholderText = "Paste the URL to a PNG file here."
+			l__InputUrl__1.BackgroundColor3 = Color3.fromRGB(31, 31, 31)
+		end
+	end)
+
+	--// SETTINGS PANEL \\--
+	local SettingsPanel = Instance.new("Frame")
+	SettingsPanel.Parent = ScreenGui
+	SettingsPanel.Size = UDim2.new(0, 280, 0, 500)
+	SettingsPanel.Position = UDim2.new(1, -290, 1, -550)
+	SettingsPanel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+	SettingsPanel.BorderSizePixel = 0
+	SettingsPanel.Visible = false
+	SettingsPanel.Active = true
+	SettingsPanel.Draggable = true
+
+	local settingsCorner = Instance.new("UICorner")
+	settingsCorner.CornerRadius = UDim.new(0, 8)
+	settingsCorner.Parent = SettingsPanel
+
+	local settingsTitle = Instance.new("TextLabel")
+	settingsTitle.Parent = SettingsPanel
+	settingsTitle.Size = UDim2.new(1, 0, 0, 30)
+	settingsTitle.BackgroundTransparency = 1
+	settingsTitle.Text = "⚡ PNG Speed Settings"
+	settingsTitle.TextColor3 = Color3.fromRGB(0, 170, 255)
+	settingsTitle.Font = Enum.Font.SourceSansBold
+	settingsTitle.TextScaled = true
+
+	local settingsLayout = Instance.new("UIListLayout")
+	settingsLayout.Parent = SettingsPanel
+	settingsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	settingsLayout.Padding = UDim.new(0, 2)
+
+	local function createSettingRow(name, key, min, max, increment)
+		local row = Instance.new("Frame")
+		row.Parent = SettingsPanel
+		row.Size = UDim2.new(1, -10, 0, 25)
+		row.BackgroundTransparency = 1
+		row.LayoutOrder = #SettingsPanel:GetChildren()
+
+		local label = Instance.new("TextLabel")
+		label.Parent = row
+		label.Size = UDim2.new(0.6, 0, 1, 0)
+		label.Position = UDim2.new(0, 5, 0, 0)
+		label.BackgroundTransparency = 1
+		label.Text = name
+		label.TextColor3 = Color3.new(1, 1, 1)
+		label.Font = Enum.Font.SourceSans
+		label.TextScaled = true
+		label.TextXAlignment = Enum.TextXAlignment.Left
+
+		local input = Instance.new("TextBox")
+		input.Parent = row
+		input.Size = UDim2.new(0.35, 0, 1, -4)
+		input.Position = UDim2.new(0.63, 0, 0, 2)
+		input.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+		input.TextColor3 = Color3.new(1, 1, 1)
+		input.Font = Enum.Font.SourceSansBold
+		input.TextScaled = true
+		input.Text = tostring(SETTINGS[key])
+		input.ClearTextOnFocus = true
+
+		local inputCorner = Instance.new("UICorner")
+		inputCorner.CornerRadius = UDim.new(0, 4)
+		inputCorner.Parent = input
+
+		input.FocusLost:Connect(function()
+			local num = tonumber(input.Text)
+			if num then
+				num = math.clamp(num, min, max)
+				if increment then
+					num = math.floor(num / increment) * increment
+				end
+				SETTINGS[key] = num
+				input.Text = tostring(num)
+			else
+				input.Text = tostring(SETTINGS[key])
+			end
+		end)
+
+		return row
+	end
+
+	local function createToggleRow(name, key)
+		local row = Instance.new("Frame")
+		row.Parent = SettingsPanel
+		row.Size = UDim2.new(1, -10, 0, 25)
+		row.BackgroundTransparency = 1
+		row.LayoutOrder = #SettingsPanel:GetChildren()
+
+		local label = Instance.new("TextLabel")
+		label.Parent = row
+		label.Size = UDim2.new(0.6, 0, 1, 0)
+		label.Position = UDim2.new(0, 5, 0, 0)
+		label.BackgroundTransparency = 1
+		label.Text = name
+		label.TextColor3 = Color3.new(1, 1, 1)
+		label.Font = Enum.Font.SourceSans
+		label.TextScaled = true
+		label.TextXAlignment = Enum.TextXAlignment.Left
+
+		local toggle = Instance.new("TextButton")
+		toggle.Parent = row
+		toggle.Size = UDim2.new(0.35, 0, 1, -4)
+		toggle.Position = UDim2.new(0.63, 0, 0, 2)
+		toggle.Font = Enum.Font.SourceSansBold
+		toggle.TextScaled = true
+		toggle.Text = SETTINGS[key] and "ON" or "OFF"
+		toggle.BackgroundColor3 = SETTINGS[key] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+		toggle.TextColor3 = Color3.new(1, 1, 1)
+
+		local toggleCorner = Instance.new("UICorner")
+		toggleCorner.CornerRadius = UDim.new(0, 4)
+		toggleCorner.Parent = toggle
+
+		toggle.Activated:Connect(function()
+			SETTINGS[key] = not SETTINGS[key]
+			toggle.Text = SETTINGS[key] and "ON" or "OFF"
+			toggle.BackgroundColor3 = SETTINGS[key] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+		end)
+
+		return row
+	end
+
+	-- Normal settings
+	local normalHeader = Instance.new("TextLabel")
+	normalHeader.Parent = SettingsPanel
+	normalHeader.Size = UDim2.new(1, 0, 0, 20)
+	normalHeader.BackgroundTransparency = 1
+	normalHeader.Text = "── Normal Mode ──"
+	normalHeader.TextColor3 = Color3.fromRGB(100, 200, 255)
+	normalHeader.Font = Enum.Font.SourceSansBold
+	normalHeader.TextScaled = true
+	normalHeader.LayoutOrder = 2
+
+	createSettingRow("Batch Size", "BATCH_SIZE", 1, 200, 1)
+	createSettingRow("Batch Delay", "BATCH_DELAY", 0, 1, 0.01)
+	createSettingRow("Skip Alpha Below", "SKIP_ALPHA_BELOW", 0, 255, 1)
+	createSettingRow("Max Image Size", "MAX_IMAGE_SIZE", 16, 512, 1)
+	createSettingRow("Downscale Factor", "DOWNSCALE_FACTOR", 1, 16, 1)
+	createSettingRow("Color Threshold", "COLOR_THRESHOLD", 0, 255, 1)
+	createSettingRow("Height Multiplier", "PART_HEIGHT_MULTIPLIER", 0, 20, 0.5)
+	createSettingRow("Flat Height", "FLAT_HEIGHT", 0.1, 10, 0.1)
+	createToggleRow("Merge Colors", "MERGE_SIMILAR_COLORS")
+	createToggleRow("Flat Mode", "FLAT_MODE")
+	createToggleRow("Bulk Move", "USE_BULK_MOVE")
+
+	-- Instant mode settings
+	local instantHeader = Instance.new("TextLabel")
+	instantHeader.Parent = SettingsPanel
+	instantHeader.Size = UDim2.new(1, 0, 0, 20)
+	instantHeader.BackgroundTransparency = 1
+	instantHeader.Text = "── 💀 Instant Mode ──"
+	instantHeader.TextColor3 = Color3.fromRGB(255, 80, 80)
+	instantHeader.Font = Enum.Font.SourceSansBold
+	instantHeader.TextScaled = true
+	instantHeader.LayoutOrder = 50
+
+	createSettingRow("Threads", "INSTANT_THREADS", 10, 500, 10)
+	createSettingRow("Queue Size", "INSTANT_QUEUE_SIZE", 50, 2000, 50)
+	createToggleRow("No Yield", "INSTANT_NO_YIELD")
+	createToggleRow("Skip Transparency", "INSTANT_SKIP_TRANSPARENCY")
+	createToggleRow("Pre-create Parts", "INSTANT_PRECREATE_PARTS")
+
+	-- Speed presets
+	local presetLabel = Instance.new("TextLabel")
+	presetLabel.Parent = SettingsPanel
+	presetLabel.Size = UDim2.new(1, 0, 0, 20)
+	presetLabel.BackgroundTransparency = 1
+	presetLabel.Text = "⚡ Speed Presets"
+	presetLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+	presetLabel.Font = Enum.Font.SourceSansBold
+	presetLabel.TextScaled = true
+	presetLabel.LayoutOrder = 100
+
+	local presetFrame = Instance.new("Frame")
+	presetFrame.Parent = SettingsPanel
+	presetFrame.Size = UDim2.new(1, -10, 0, 30)
+	presetFrame.BackgroundTransparency = 1
+	presetFrame.LayoutOrder = 101
+
+	local presetLayout = Instance.new("UIListLayout")
+	presetLayout.Parent = presetFrame
+	presetLayout.FillDirection = Enum.FillDirection.Horizontal
+	presetLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	presetLayout.Padding = UDim.new(0, 4)
+
+	local presets = {
+		{"🐢 Safe", {BATCH_SIZE = 10, BATCH_DELAY = 0.1, DOWNSCALE_FACTOR = 2, MERGE_SIMILAR_COLORS = true, COLOR_THRESHOLD = 20, INSTANT_MODE = false}},
+		{"⚡ Fast", {BATCH_SIZE = 50, BATCH_DELAY = 0.03, DOWNSCALE_FACTOR = 1, MERGE_SIMILAR_COLORS = true, COLOR_THRESHOLD = 10, INSTANT_MODE = false}},
+		{"🚀 Ultra", {BATCH_SIZE = 100, BATCH_DELAY = 0.01, DOWNSCALE_FACTOR = 1, MERGE_SIMILAR_COLORS = true, COLOR_THRESHOLD = 5, INSTANT_MODE = false}},
+		{"💀 INSTANT", {INSTANT_MODE = true, INSTANT_THREADS = 200, INSTANT_NO_YIELD = true, INSTANT_QUEUE_SIZE = 500, MERGE_SIMILAR_COLORS = true, COLOR_THRESHOLD = 10}},
+	}
+
+	for i, preset in pairs(presets) do
+		local btn = Instance.new("TextButton")
+		btn.Parent = presetFrame
+		btn.Size = UDim2.new(0.24, -3, 1, 0)
+		btn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+		btn.TextColor3 = Color3.new(1, 1, 1)
+		btn.Font = Enum.Font.SourceSansBold
+		btn.TextScaled = true
+		btn.Text = preset[1]
+		btn.LayoutOrder = i
+
+		local btnCorner = Instance.new("UICorner")
+		btnCorner.CornerRadius = UDim.new(0, 4)
+		btnCorner.Parent = btn
+
+		btn.Activated:Connect(function()
+			for key, value in pairs(preset[2]) do
+				SETTINGS[key] = value
+			end
+
+			InstantButton.BackgroundColor3 = SETTINGS.INSTANT_MODE and Color3.fromRGB(200, 30, 30) or Color3.fromRGB(50, 50, 50)
+			if SETTINGS.INSTANT_MODE then
+				l__InputUrl__1.PlaceholderText = "💀 INSTANT MODE ON - Paste URL here"
+				l__InputUrl__1.BackgroundColor3 = Color3.fromRGB(50, 20, 20)
+			else
+				l__InputUrl__1.PlaceholderText = "Paste the URL to a PNG file here."
+				l__InputUrl__1.BackgroundColor3 = Color3.fromRGB(31, 31, 31)
+			end
+
+			print("[PNG Loader] Applied preset: " .. preset[1])
+		end)
+	end
+
+	SettingsButton.Activated:Connect(function()
+		SettingsPanel.Visible = not SettingsPanel.Visible
+	end)
+
+	--// FILE BROWSER BUTTON \\--
+	ImportImageButton.Parent = l__InputUrl__1
+	ImportImageButton.Text = "File"
+	ImportImageButton.Size = UDim2.new(0, 20, 0, workspace.CurrentCamera.ViewportSize.Y * 0.025)
+	ImportImageButton.ZIndex = 2
+	ImportImageButton.AnchorPoint = Vector2.new(1, 0)
+
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		ImportImageButton.Size = UDim2.new(0, 20, 0, workspace.CurrentCamera.ViewportSize.Y * 0.025)
+		SettingsButton.Size = UDim2.new(0, 20, 0, workspace.CurrentCamera.ViewportSize.Y * 0.025)
+		InstantButton.Size = UDim2.new(0, 20, 0, workspace.CurrentCamera.ViewportSize.Y * 0.025)
+	end)
+
+	ImportImageButton.Position = UDim2.new(1, 0, 0, -20)
+	ImportImageButton.Activated:Connect(function()
+		PNGImporter_Show = not PNGImporter_Show
+		PNGImporterGui.Enabled = PNGImporter_Show
+		refreshfiles()
+	end)
+
+	--// PNG FILE HANDLER \\--
+	local l__GetPngFile__2 = {
+		InvokeServer = function(link)
+			local returning
+			local success, err = pcall(function()
+				if string.sub(link, 1, 8) == "file:///" then
+					returning = readfile(string.sub(link, 9, string.len(link)))
+				else
+					returning = httpget(link)
+				end
+			end)
+			if success then
+				return true, returning
+			end
+			if err then
+				return false, err
+			end
+		end,
+	}
+
+	local function u3(p1)
+		local v3 = "[Error] " .. tostring(p1)
+		l__InputUrl__1.Text = v3
+		l__InputUrl__1.TextColor3 = Color3.new(1, 0, 0)
+		delay(2, function()
+			if l__InputUrl__1.Text == v3 then
+				l__InputUrl__1.Text = ""
+			end
+		end)
+	end
+
+	--// LOAD PNG MODULE \\--
+	for _, v in pairs(game:GetObjects("rbxassetid://11306417113")[1]:GetChildren()) do
+		v:Clone().Parent = CorePackagesFolder
+	end
+
+	local u4 = loadstring("local script = getgenv().pngmodule\n" .. game:GetObjects("rbxassetid://11306417113")[1].Source)()
+
+	--// INPUT HANDLERS \\--
+	l__InputUrl__1.Focused:Connect(function()
+		l__InputUrl__1.TextColor3 = Color3.new(1, 1, 1)
+	end)
+
+	l__InputUrl__1.FocusLost:Connect(function(enter)
+		if enter then
+			local link = l__InputUrl__1.Text
+			l__InputUrl__1.Text = "Loading..."
+
+			local v5, v4 = l__GetPngFile__2.InvokeServer(link)
+			if not v5 then
+				u3(v4)
+				return
+			end
+
+			local v6, v7 = pcall(function()
+				return u4.new(v4)
+			end)
+			if not v6 then
+				u3(v7)
+				return
+			end
+
+			local l__Width__9 = v7.Width
+			local l__Height__10 = v7.Height
+
+			l__InputUrl__1.Text = string.format("Optimizing %dx%d image...", l__Width__9, l__Height__10)
+
+			local pixels, newWidth, newHeight = optimizePixels(v7, l__Width__9, l__Height__10)
+			local totalPixels = #pixels
+
+			if totalPixels == 0 then
+				u3("No visible pixels found!")
+				return
+			end
+
+			local at = LocalPlayer.Character.Head.Position
+			local offset = Vector3.new(-newWidth / 2, 0, -newHeight / 2)
+
+			local function startBuild()
+				l__InputUrl__1.Text = string.format("Building %d parts...", totalPixels)
+
+				local progress = createProgressBar()
+				local startTime = tick()
+
+				local success, processed, model
+
+				if SETTINGS.INSTANT_MODE then
+					success, processed, model = instantBuild(pixels, ServerEndpoint, at, offset, progress)
+				else
+					success, processed, model = normalBuild(pixels, ServerEndpoint, at, offset, progress)
+				end
+
+				task.wait(1)
+				progress.destroy()
+
+				if success and not l__InputUrl__1:IsFocused() then
+					local elapsed = tick() - startTime
+					local mode = SETTINGS.INSTANT_MODE and "💀 INSTANT" or "⚡ Normal"
+					l__InputUrl__1.Text = string.format("%s Done! %d parts in %.1fs", mode, processed, elapsed)
+					l__InputUrl__1.TextColor3 = Color3.new(0, 1, 0)
+					wait(3)
+					if not l__InputUrl__1:IsFocused() then
+						l__InputUrl__1.Text = ""
+					end
+				end
+			end
+
+			-- Show warning for instant mode
+			if SETTINGS.INSTANT_MODE then
+				showInstantWarning(function(confirmed)
+					if confirmed then
+						startBuild()
+					else
+						l__InputUrl__1.Text = "Cancelled."
+						l__InputUrl__1.TextColor3 = Color3.fromRGB(255, 200, 0)
+						delay(1, function()
+							if not l__InputUrl__1:IsFocused() then
+								l__InputUrl__1.Text = ""
+							end
+						end)
+					end
+				end)
+			else
+				startBuild()
+			end
+		end
+	end)
+else
+	local msg = Instance.new("Hint")
+	msg.Parent = game:GetService("CoreGui")
+	msg.Text = "Your executor doesn't support this script. Need: " ..
+		(not (getcustomasset or getsynasset) and "getcustomasset/getsynasset " or "") ..
+		(not writefile and "writefile " or "") ..
+		(not listfiles and "listfiles " or "") ..
+		(not readfile and "readfile " or "") ..
+		(not isfile and "isfile " or "") ..
+		(not isfolder and "isfolder " or "") ..
+		(not getgenv and "getgenv " or "") ..
+		(not loadstring and "loadstring " or "")
+	game:GetService("Debris"):AddItem(msg, 5)
+end
