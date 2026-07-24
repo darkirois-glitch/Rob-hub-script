@@ -1,0 +1,240 @@
+
+
+local plr = game.Players.LocalPlayer
+local char = plr.Character or plr.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+local hum = char:WaitForChild("Humanoid")
+
+local rs = game:GetService("RunService")
+local att = hrp["RootAttachment"]
+
+if not getgenv().Settings then
+    getgenv().Settings = {
+        Pulling = false,
+        Responsiveness = 200
+    }
+end
+
+if getgenv()["SpawnCon"] then
+    getgenv()["SpawnCon"]:Disconnect()
+end
+getgenv()["SpawnCon"] = plr.CharacterAdded:Connect(function(c)
+    char = c
+    hrp = c:WaitForChild("HumanoidRootPart")
+    hum = c:WaitForChild("Humanoid")
+    att = hrp:WaitForChild("RootAttachment")
+end)
+
+if not getgenv().Network then 
+    getgenv().Network = {
+        BaseParts = {},
+        Velocity = Vector3.new(0,0,0),
+        Instances = {
+            AlignPositions = {},
+            Torques = {}
+        }
+    }
+
+    Network.RetainPart = function(v) 
+        if v:IsA("BasePart") and not v.Anchored
+        and v:IsDescendantOf(workspace) then
+            table.insert(Network.BaseParts, v)
+            v.CustomPhysicalProperties = PhysicalProperties.new(0,0,0,0,0)
+        end
+    end
+
+    local function Control()
+        plr.ReplicationFocus = workspace
+        local con; con = rs.Heartbeat:Connect(function()
+            if not getgenv().Network then con:Disconnect() con = nil return end
+            sethiddenproperty(plr, "SimulationRadius", math.huge)            
+            for i,v in next, getgenv().Network.BaseParts do
+                v.Velocity = getgenv().Network.Velocity
+            end
+        end)
+    end
+    Control()
+end
+
+local function PullPart(v)
+    if v:IsA("BasePart") and not v.Anchored and getgenv().Settings.Pulling 
+    and not v:IsDescendantOf(char) and v.AssemblyRootPart ~= hrp then
+
+        if v.ClassName == "VehicleSeat" or v.ClassName == "Seat" then 
+            v.Disabled = true
+        end
+        Network.RetainPart(v)
+        v.CanCollide = false
+
+        local attachment = Instance.new("Attachment", v)
+        local align = Instance.new("AlignPosition", v)        
+        align.Attachment0 = attachment
+        align.Attachment1 = att
+        align.Responsiveness = getgenv().Settings.Responsiveness
+        align.MaxForce = math.huge         
+        
+        local torque = Instance.new("Torque", v)
+        torque.Attachment0 = attachment
+        torque.Torque = Vector3.new(1000,1000,1000)
+
+        table.insert(getgenv().Network.Instances.AlignPositions, align)
+        table.insert(getgenv().Network.Instances.Torques, torque)
+    end
+end
+
+if plr["PlayerGui"]:FindFirstChild("BHoleGui") then
+    plr["PlayerGui"]:FindFirstChild("BHoleGui"):Destroy()
+end
+local MainGui = Instance.new("ScreenGui", plr["PlayerGui"])
+MainGui.ResetOnSpawn = false
+local Frame = Instance.new("Frame", MainGui)
+
+local Title = Instance.new("TextLabel", Frame)
+local Pull = Instance.new("TextButton", Frame)
+local Responsiveness = Instance.new("TextBox", Frame)
+local Toggle = Instance.new("TextButton", MainGui)
+
+local UICorner1 = Instance.new("UICorner", Frame)
+local UICorner2 = Instance.new("UICorner", Pull)
+local UICorner3 = Instance.new("UICorner", Responsiveness)
+local UICorner4 = Instance.new("UICorner", Title)
+local UICorner5 = Instance.new("UICorner", Toggle)
+
+local UIStroke1 = Instance.new("UIStroke", Frame)
+local UIStroke2 = Instance.new("UIStroke", Pull)
+local UIStroke3 = Instance.new("UIStroke", Responsiveness)
+local UIStroke4 = Instance.new("UIStroke", Title)
+local UIStroke5 = Instance.new("UIStroke", Toggle)
+
+local UIAspectRatioConstraint = Instance.new("UIAspectRatioConstraint", Toggle)
+local UIDragDetector = Instance.new("UIDragDetector", Frame)
+
+MainGui.Name = "BHoleGui"
+
+Frame.AnchorPoint = Vector2.new(.5,.5)
+Frame.Position = UDim2.fromScale(.5,.5)
+Frame.Size = UDim2.fromScale(.25,.55)
+Frame.BackgroundColor3 = Color3.new(.2,.2,.2)
+
+UIStroke1.Thickness = 5
+UIStroke1.Color = Color3.new(.4,.4,.4)
+
+Title.AnchorPoint = Vector2.new(.5,.5)
+Title.Text = "Made By VirusSX"
+Title.BackgroundColor3 = Color3.new(.3,.3,.3)
+Title.TextScaled = true
+Title.Font = "FredokaOne"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Size = UDim2.fromScale(1,.15)
+Title.Position = UDim2.fromScale(.5,0.075)
+
+UIStroke4.Thickness = 3
+
+Pull.AnchorPoint = Vector2.new(.5,.5)
+Pull.Position = UDim2.fromScale(.5,.375)
+Pull.BackgroundColor3 = Color3.new(.3,.3,.3)
+Pull.Size = UDim2.fromScale(.9,.3)
+Pull.TextScaled = true
+Pull.RichText = true
+Pull.Font = "FredokaOne"
+Pull.TextColor3 = Color3.new(1,1,1)
+
+if getgenv().Settings.Pulling then
+    Pull.Text = "Pull: " .. '<font color="rgb(0,255,0)">On</font>'
+else
+    Pull.Text = "Pull: " .. '<font color="rgb(255,0,0)">Off</font>'
+end
+
+UIStroke2.Thickness = 3
+
+Responsiveness.AnchorPoint = Vector2.new(.5,.5)
+Responsiveness.Font = "FredokaOne"
+Responsiveness.Size = UDim2.fromScale(.9, .3)
+Responsiveness.Position = UDim2.fromScale(.5,.75)
+Responsiveness.TextScaled = true
+Responsiveness.TextColor3 = Color3.new(1,1,1)
+Responsiveness.BackgroundColor3 = Color3.new(.3,.3,.3)
+Responsiveness.Text = "Responsiveness: " .. getgenv().Settings.Responsiveness
+Responsiveness.PlaceholderText = "Set Responsiveness... (Default: 200)"
+Responsiveness.TextSize = 35
+
+UIStroke3.Thickness = 3
+
+Responsiveness.FocusLost:Connect(function()
+    local number = tonumber(Responsiveness.Text)
+    if number and number > 0 then
+        Responsiveness.Text = "Responsiveness: " .. number
+        getgenv().Settings.Responsiveness = number
+
+        for i,v in next, getgenv().Network.Instances.AlignPositions do
+            v.Responsiveness = getgenv().Settings.Responsiveness
+        end
+    else
+        Responsiveness.Text = ""
+    end
+end)
+
+Toggle.AnchorPoint = Vector2.new(.5,.5)
+Toggle.Position = UDim2.fromScale(.1,.2)
+Toggle.Size = UDim2.fromScale(.15,.15)
+Toggle.TextScaled = true
+Toggle.BackgroundColor3 = Color3.new(.3,.3,.3)
+Toggle.Font = "FredokaOne"
+Toggle.Text = "X"
+Toggle.TextColor3 = Color3.new(1,1,1)
+Toggle.Draggable = true
+
+UIStroke5.Thickness = 3
+
+Toggle.MouseButton1Click:Connect(function()
+    Frame.Visible = not Frame.Visible
+end)
+
+Pull.MouseButton1Click:Connect(function()
+    if not getgenv().Settings.Pulling then
+        Pull.Text = "Pull: " .. '<font color="rgb(0,255,0)">On</font>'
+        getgenv().Settings.Pulling = true
+
+        for i,v in next, workspace:GetDescendants() do
+            PullPart(v)
+        end
+    else
+        Pull.Text = "Pull: " .. '<font color="rgb(255,0,0)">Off</font>'
+        getgenv().Settings.Pulling = false
+
+        for _,k in next, {getgenv().Network.Instances.Torques, getgenv().Network.Instances.AlignPositions} do
+            for _,v in next, k do
+                if v then v:Destroy() end
+            end
+            table.clear(k)
+        end
+    end
+end)
+
+if getgenv()["WorkspaceSpawnCon"] then
+    getgenv()["WorkspaceSpawnCon"]:Disconnect()
+end
+getgenv()["WorkspaceSpawnCon"] = workspace.DescendantAdded:Connect(function(v)
+    PullPart(v)
+end)
+
+local bindable = Instance.new("BindableFunction")
+bindable.OnInvoke = function(v)
+    if v == "Join Discord" then
+        setclipboard("https://discord.gg/5xEktGhuDF")
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Success",
+            Text = "Copied to clipboard",
+            Duration = 5
+        })
+    end
+end
+
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Credit",
+    Text = "Script made by VirusSX!",
+    Duration = 10,
+    Icon = "rbxassetid://125216423973815",
+    Button1 = "Join Discord",
+    Callback = bindable
+})
