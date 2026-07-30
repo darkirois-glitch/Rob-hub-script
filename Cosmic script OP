@@ -1,0 +1,710 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+
+local player = Players.LocalPlayer
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "CosmicForm"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local Holder = Instance.new("Frame")
+Holder.Parent = gui
+Holder.AnchorPoint = Vector2.new(0.5,0.5)
+Holder.Position = UDim2.new(0.5,0,0.75,0)
+Holder.Size = UDim2.new(0,600,0,40)
+Holder.BackgroundTransparency = 1
+Holder.BorderSizePixel = 0
+Holder.ClipsDescendants = true
+
+local HolderCorner = Instance.new("UICorner")
+HolderCorner.CornerRadius = UDim.new(0,12)
+HolderCorner.Parent = Holder
+
+local OuterAura = Instance.new("Frame")
+OuterAura.Parent = Holder
+OuterAura.Size = UDim2.new(1,40,1,40)
+OuterAura.AnchorPoint = Vector2.new(0.5,0.5)
+OuterAura.Position = UDim2.new(0.5,0,0.5,0)
+OuterAura.BackgroundTransparency = 1
+OuterAura.BorderSizePixel = 0
+OuterAura.ZIndex = 0
+
+local AuraGradient = Instance.new("UIGradient")
+AuraGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0.00, Color3.fromRGB(120,20,200)),
+    ColorSequenceKeypoint.new(0.33, Color3.fromRGB(80,10,180)),
+    ColorSequenceKeypoint.new(0.66, Color3.fromRGB(140,30,220)),
+    ColorSequenceKeypoint.new(1.00, Color3.fromRGB(100,20,190)),
+})
+AuraGradient.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0.00, 0.85),
+    NumberSequenceKeypoint.new(0.25, 0.7),
+    NumberSequenceKeypoint.new(0.50, 0.6),
+    NumberSequenceKeypoint.new(0.75, 0.7),
+    NumberSequenceKeypoint.new(1.00, 0.85),
+})
+AuraGradient.Parent = OuterAura
+
+local AuraCorner = Instance.new("UICorner")
+AuraCorner.CornerRadius = UDim.new(0,20)
+AuraCorner.Parent = OuterAura
+
+local InnerRing = Instance.new("Frame")
+InnerRing.Parent = Holder
+InnerRing.Size = UDim2.new(1,12,1,12)
+InnerRing.AnchorPoint = Vector2.new(0.5,0.5)
+InnerRing.Position = UDim2.new(0.5,0,0.5,0)
+InnerRing.BackgroundTransparency = 1
+InnerRing.BorderSizePixel = 0
+InnerRing.ZIndex = 3
+
+local RingCorner = Instance.new("UICorner")
+RingCorner.CornerRadius = UDim.new(0,14)
+RingCorner.Parent = InnerRing
+
+local NebulaBg = Instance.new("ImageLabel")
+NebulaBg.Parent = Holder
+NebulaBg.Size = UDim2.fromScale(1,1)
+NebulaBg.BackgroundTransparency = 1
+NebulaBg.Image = "rbxassetid://7884720727"
+NebulaBg.ScaleType = Enum.ScaleType.Stretch
+NebulaBg.ImageColor3 = Color3.fromRGB(60,20,120)
+NebulaBg.ImageTransparency = 0.4
+NebulaBg.ZIndex = 1
+
+local Fill = Instance.new("Frame")
+Fill.Parent = Holder
+Fill.Size = UDim2.new(0,0,1,0)
+Fill.BackgroundTransparency = 1
+Fill.ClipsDescendants = true
+Fill.ZIndex = 2
+
+local FillCorner = Instance.new("UICorner")
+FillCorner.CornerRadius = UDim.new(0,12)
+FillCorner.Parent = Fill
+
+local FillBg = Instance.new("ImageLabel")
+FillBg.Parent = Fill
+FillBg.Size = UDim2.fromScale(1,1)
+FillBg.BackgroundTransparency = 1
+FillBg.Image = "rbxassetid://7884720727"
+FillBg.ScaleType = Enum.ScaleType.Stretch
+FillBg.ImageColor3 = Color3.fromRGB(120,40,220)
+FillBg.ZIndex = 2
+
+local PurpleOverlay = Instance.new("Frame")
+PurpleOverlay.Parent = Fill
+PurpleOverlay.Size = UDim2.fromScale(1,1)
+PurpleOverlay.BackgroundColor3 = Color3.fromRGB(80,10,180)
+PurpleOverlay.BackgroundTransparency = 0.3
+PurpleOverlay.BorderSizePixel = 0
+PurpleOverlay.ZIndex = 2
+
+local FillGradient = Instance.new("UIGradient")
+FillGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0.00, Color3.fromRGB(180,80,255)),
+    ColorSequenceKeypoint.new(0.50, Color3.fromRGB(100,30,200)),
+    ColorSequenceKeypoint.new(1.00, Color3.fromRGB(160,60,240)),
+})
+FillGradient.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0.00, 0.2),
+    NumberSequenceKeypoint.new(0.50, 0.0),
+    NumberSequenceKeypoint.new(1.00, 0.2),
+})
+FillGradient.Parent = Fill
+
+local NebulaClouds = {}
+for i = 1, 3 do
+    local cloud = Instance.new("ImageLabel")
+    cloud.Parent = Fill
+    cloud.Size = UDim2.new(0,math.random(60,100),0,math.random(25,35))
+    cloud.Position = UDim2.new(math.random(),0,math.random(),0)
+    cloud.BackgroundTransparency = 1
+    cloud.Image = "rbxassetid://7884720727"
+    cloud.ScaleType = Enum.ScaleType.Stretch
+    cloud.ImageColor3 = Color3.fromRGB(140,50,220)
+    cloud.ImageTransparency = 0.6
+    cloud.ZIndex = 2
+    
+    table.insert(NebulaClouds, {
+        obj = cloud,
+        x = math.random(),
+        y = math.random(),
+        speed = math.random() * 0.02 + 0.01,
+        size = cloud.Size
+    })
+end
+
+local Stars = {}
+for i = 1, 35 do
+    local star = Instance.new("Frame")
+    star.Parent = Fill
+    star.Size = UDim2.new(0,math.random(1,4),0,math.random(1,4))
+    star.Position = UDim2.new(math.random(),0,math.random(),0)
+    star.BackgroundColor3 = Color3.fromRGB(220,200,255)
+    star.BackgroundTransparency = 0.2
+    star.BorderSizePixel = 0
+    star.ZIndex = 3
+    
+    local starCorner = Instance.new("UICorner")
+    starCorner.CornerRadius = UDim.new(1,0)
+    starCorner.Parent = star
+    
+    local starGlow = Instance.new("ImageLabel")
+    starGlow.Parent = star
+    starGlow.Size = UDim2.new(5,0,5,0)
+    starGlow.AnchorPoint = Vector2.new(0.5,0.5)
+    starGlow.Position = UDim2.new(0.5,0,0.5,0)
+    starGlow.BackgroundTransparency = 1
+    starGlow.Image = "rbxassetid://7884720727"
+    starGlow.ImageColor3 = Color3.fromRGB(180,130,255)
+    starGlow.ImageTransparency = 0.5
+    starGlow.ScaleType = Enum.ScaleType.Stretch
+    
+    table.insert(Stars, {
+        obj = star,
+        glow = starGlow,
+        x = math.random(),
+        y = math.random(),
+        speedX = math.random() * 0.05 - 0.025,
+        speedY = math.random() * 0.02 - 0.01,
+        twinkleOffset = math.random() * math.pi * 2,
+        twinkleSpeed = math.random() * 2 + 1
+    })
+end
+
+local Rays = {}
+for i = 1, 6 do
+    local ray = Instance.new("Frame")
+    ray.Parent = Fill
+    ray.Size = UDim2.new(0,2,1,0)
+    ray.Position = UDim2.new(math.random(),0,0,0)
+    ray.BackgroundColor3 = Color3.fromRGB(200,150,255)
+    ray.BackgroundTransparency = 0.8
+    ray.BorderSizePixel = 0
+    ray.ZIndex = 2
+    
+    table.insert(Rays, {
+        obj = ray,
+        x = math.random(),
+        speed = math.random() * 0.08 + 0.04,
+        alpha = math.random() * 0.3 + 0.1
+    })
+end
+
+local EnergyLines = {}
+for i = 1, 8 do
+    local line = Instance.new("Frame")
+    line.Parent = Fill
+    line.Size = UDim2.new(0,math.random(30,70),0,2)
+    line.Position = UDim2.new(math.random(),0,0,0)
+    line.BackgroundColor3 = Color3.fromRGB(180,120,255)
+    line.BackgroundTransparency = 0.7
+    line.BorderSizePixel = 0
+    line.ZIndex = 3
+    
+    local lineCorner = Instance.new("UICorner")
+    lineCorner.CornerRadius = UDim.new(0,1)
+    lineCorner.Parent = line
+    
+    table.insert(EnergyLines, {
+        obj = line,
+        x = math.random(),
+        length = math.random(30,70),
+        speed = math.random() * 0.1 + 0.05,
+        alpha = math.random() * 0.5 + 0.3
+    })
+end
+
+local ScanLine = Instance.new("Frame")
+ScanLine.Parent = Fill
+ScanLine.Size = UDim2.new(0,90,1,0)
+ScanLine.Position = UDim2.new(0,0,0,0)
+ScanLine.BackgroundTransparency = 1
+ScanLine.BorderSizePixel = 0
+ScanLine.ZIndex = 4
+
+local ScanGradient = Instance.new("UIGradient")
+ScanGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255,255,255)),
+    ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255,255,255)),
+})
+ScanGradient.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0.00, 0.9),
+    NumberSequenceKeypoint.new(0.50, 0.6),
+    NumberSequenceKeypoint.new(1.00, 0.9),
+})
+ScanGradient.Parent = ScanLine
+
+local Sparkles = {}
+for i = 1, 12 do
+    local sparkle = Instance.new("ImageLabel")
+    sparkle.Parent = Fill
+    sparkle.Size = UDim2.new(0,12,0,12)
+    sparkle.AnchorPoint = Vector2.new(0.5,0.5)
+    sparkle.Position = UDim2.new(math.random(),0,math.random(),0)
+    sparkle.BackgroundTransparency = 1
+    sparkle.Image = "rbxassetid://7884720727"
+    sparkle.ImageColor3 = Color3.fromRGB(220,180,255)
+    sparkle.ImageTransparency = 0.4
+    sparkle.ScaleType = Enum.ScaleType.Stretch
+    sparkle.ZIndex = 4
+    
+    table.insert(Sparkles, {
+        obj = sparkle,
+        x = math.random(),
+        y = math.random(),
+        lifetime = math.random(),
+        sparkleSpeed = math.random() * 0.5 + 0.5
+    })
+end
+
+local DustRing = {}
+for i = 1, 30 do
+    local dust = Instance.new("Frame")
+    dust.Parent = Holder
+    dust.Size = UDim2.new(0,math.random(1,3),0,math.random(1,3))
+    dust.Position = UDim2.new(math.random(),0,math.random(),0)
+    dust.BackgroundColor3 = Color3.fromRGB(200,150,255)
+    dust.BackgroundTransparency = 0.4
+    dust.BorderSizePixel = 0
+    dust.ZIndex = 5
+    
+    local dustCorner = Instance.new("UICorner")
+    dustCorner.CornerRadius = UDim.new(1,0)
+    dustCorner.Parent = dust
+    
+    table.insert(DustRing, {
+        obj = dust,
+        x = math.random(),
+        y = math.random(),
+        speedX = math.random() * 0.08 - 0.04,
+        speedY = math.random() * 0.04 - 0.02,
+        twinkle = math.random() * math.pi * 2
+    })
+end
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0,12)
+Corner.Parent = Holder
+
+local Text = Instance.new("TextLabel")
+Text.Parent = Holder
+Text.BackgroundTransparency = 1
+Text.Size = UDim2.fromScale(1,1)
+Text.Text = "COSMIC FORM"
+Text.TextScaled = true
+Text.Font = Enum.Font.GothamBold
+Text.TextColor3 = Color3.fromRGB(255,255,255)
+Text.TextStrokeTransparency = 0.4
+Text.TextStrokeColor3 = Color3.fromRGB(60,10,120)
+Text.ZIndex = 6
+
+local StatusText = Instance.new("TextLabel")
+StatusText.Parent = Holder
+StatusText.BackgroundTransparency = 1
+StatusText.Size = UDim2.new(1,0,0.5,0)
+StatusText.Position = UDim2.new(0,0,0.5,0)
+StatusText.Text = "CHARGING..."
+StatusText.TextScaled = true
+StatusText.Font = Enum.Font.GothamBold
+StatusText.TextColor3 = Color3.fromRGB(200,180,255)
+StatusText.TextStrokeTransparency = 0.5
+StatusText.TextStrokeColor3 = Color3.fromRGB(40,10,80)
+StatusText.ZIndex = 7
+
+local CHARGE_DURATION = 10
+local isReady = false
+local startTick = tick()
+local barActive = true
+local scriptStarted = false
+
+Fill.Size = UDim2.new(0,0,1,0)
+
+
+local SECOND_SCRIPT = [[
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+
+local player = Players.LocalPlayer
+
+local CUSTOM_ANIM_1_ID = 76532633624877
+local CUSTOM_ANIM_2_ID = 82471397502609
+local SOUND_ID = 71729430555971
+
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+
+local customAnim1Track = nil
+local customAnim2Track = nil
+local sound = nil
+
+local isInSequence = false
+local originalWalkSpeed = 16
+local originalJumpPower = 50
+
+local screenGui = nil
+local soundGUI = nil
+local images = {}
+local blackScreen = nil
+local slideShowRunning = false
+
+local function loadAnimations()
+    local customAnim1 = Instance.new("Animation")
+    customAnim1.AnimationId = "rbxassetid://" .. CUSTOM_ANIM_1_ID
+    customAnim1Track = humanoid:LoadAnimation(customAnim1)
+    customAnim1Track.Looped = false
+    customAnim1Track.Priority = Enum.AnimationPriority.Action
+    
+    local customAnim2 = Instance.new("Animation")
+    customAnim2.AnimationId = "rbxassetid://" .. CUSTOM_ANIM_2_ID
+    customAnim2Track = humanoid:LoadAnimation(customAnim2)
+    customAnim2Track.Looped = false
+    customAnim2Track.Priority = Enum.AnimationPriority.Action
+end
+
+local function playSound()
+    if sound then
+        sound:Destroy()
+        sound = nil
+    end
+    
+    sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://" .. SOUND_ID
+    sound.Parent = character
+    sound.Volume = 5
+    sound:Play()
+end
+
+local function stopSound()
+    if sound then
+        sound:Stop()
+        sound:Destroy()
+        sound = nil
+    end
+end
+
+local function stopCustomAnims()
+    if customAnim1Track and customAnim1Track.IsPlaying then
+        customAnim1Track:Stop()
+    end
+    if customAnim2Track and customAnim2Track.IsPlaying then
+        customAnim2Track:Stop()
+    end
+end
+
+local function exitSequence()
+    if not isInSequence then return end
+    
+    isInSequence = false
+    slideShowRunning = false
+    
+    humanoid.WalkSpeed = originalWalkSpeed
+    humanoid.JumpPower = originalJumpPower
+    
+    stopCustomAnims()
+    stopSound()
+    
+    turnOffAll()
+    
+    if soundGUI then
+        soundGUI:Stop()
+    end
+end
+
+local function setupGUI()
+    if screenGui then return end
+    
+    screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    soundGUI = Instance.new("Sound", screenGui)
+    soundGUI.SoundId = "rbxassetid://114676444286489"
+    soundGUI.Volume = 2
+    soundGUI.PlayOnRemove = false
+    
+    blackScreen = Instance.new("ImageLabel", screenGui)
+    blackScreen.BorderSizePixel = 0
+    blackScreen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    blackScreen.BackgroundTransparency = 0
+    blackScreen.Size = UDim2.new(0, 1924, 0, 1084)
+    blackScreen.Position = UDim2.new(0, 0, 0, -58)
+    blackScreen.Image = ""
+    blackScreen.Visible = false
+    blackScreen.ZIndex = 10
+    
+    local imageNames = {"#1", "#2", "#3", "#4", "#5", "#6", "#7", "#8", "#9", "#10", "#11"}
+    local imageIds = {
+        "126936997395647",
+        "98191135749737",
+        "110447426242579",
+        "122142796311468",
+        "103823690623582",
+        "124802916435231",
+        "138224551802281",
+        "89114087565370",
+        "78601997762981",
+        "88598414077510",
+        "119082728974251"
+    }
+    
+    for i = 1, 11 do
+        local img = Instance.new("ImageLabel", screenGui)
+        img.BorderSizePixel = 0
+        img.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        img.Image = "rbxassetid://" .. imageIds[i]
+        img.Size = UDim2.new(0, 1924, 0, 1084)
+        img.Name = imageNames[i]
+        img.Position = UDim2.new(0, 0, 0, -58)
+        img.Visible = false
+        img.ZIndex = 1
+        images[i] = img
+    end
+end
+
+local function showImage(index)
+    for i = 1, 11 do
+        images[i].Visible = (i == index)
+    end
+end
+
+local function showBlackScreen()
+    for i = 1, 11 do
+        images[i].Visible = false
+    end
+    blackScreen.Visible = true
+end
+
+local function turnOffAll()
+    for i = 1, 11 do
+        images[i].Visible = false
+    end
+    blackScreen.Visible = false
+end
+
+local function startGUIAnimation()
+    setupGUI()
+    slideShowRunning = true
+    
+    task.spawn(function()
+        task.wait(0.7)
+        if not slideShowRunning then return end
+        
+        if soundGUI then
+            soundGUI:Play()
+        end
+        
+        task.wait(0.1)
+        
+        for i = 1, 4 do
+            if not slideShowRunning then break end
+            showImage(i)
+            task.wait(0.1)
+        end
+        
+        if not slideShowRunning then return end
+        turnOffAll()
+        task.wait(0.3)
+        
+        if not slideShowRunning then return end
+        for i = 5, 8 do
+            if not slideShowRunning then break end
+            showImage(i)
+            task.wait(0.1)
+        end
+        
+        if not slideShowRunning then return end
+        turnOffAll()
+        task.wait(0.2)
+        
+        if not slideShowRunning then return end
+        for i = 9, 11 do
+            if not slideShowRunning then break end
+            showImage(i)
+            task.wait(0.1)
+        end
+        
+        if not slideShowRunning then return end
+        showBlackScreen()
+        task.wait(4)
+        
+        if not slideShowRunning then return end
+        turnOffAll()
+        slideShowRunning = false
+    end)
+end
+
+local function startSequence()
+    if isInSequence then
+        exitSequence()
+        return
+    end
+    
+    isInSequence = true
+    
+    originalWalkSpeed = humanoid.WalkSpeed
+    originalJumpPower = humanoid.JumpPower
+    
+    humanoid.WalkSpeed = 0
+    humanoid.JumpPower = 0
+    
+    stopCustomAnims()
+    stopSound()
+    
+    if customAnim1Track then
+        customAnim1Track:Play()
+        playSound()
+        
+        task.spawn(function()
+            task.wait(5)
+            
+            if isInSequence then
+                stopSound()
+                
+                if customAnim1Track.IsPlaying then
+                    customAnim1Track:Stop()
+                end
+                
+                if customAnim2Track then
+                    customAnim2Track:Play()
+                    startGUIAnimation()
+                    
+                    task.wait(6)
+                    
+                    if isInSequence then
+                        exitSequence()
+                    end
+                end
+            end
+        end)
+    end
+end
+
+local isRunning = false
+local npcCharacter = nil
+local originalCharacter = nil
+local originalHumanoid = nil
+local originalRoot = nil
+local npcList = {}
+local currentAnimations = {}
+local auraApplied = false
+local effectsApplied = false
+local effectsCleanupDone = false
+local isDead = false
+
+local function CleanupAll()
+    for _, anim in ipairs(currentAnimations) do
+        pcall(function()
+            if anim and anim.Stop then
+                anim:Stop()
+            end
+        end)
+    end
+    currentAnimations = {}
+    
+    for _, npc in ipairs(npcList) do
+        pcall(function()
+            if npc and npc.Parent then
+                npc:Destroy()
+            end
+        end)
+    end
+    npcList = {}
+    
+    local toDelete = {}
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj:IsA("Model") and obj.Name and string.find(obj.Name, "_NPC") then
+            table.insert(toDelete, obj)
+        end
+    end
+    for _, obj in ipairs(toDelete) do
+        pcall(function()
+            obj:Destroy()
+        end)
+    end
+    
+    if originalCharacter and originalCharacter.Parent then
+        pcall(function()
+            for _, v in ipairs(originalCharacter:GetDescendants()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
+                    v.Transparency = 0
+                    v.CanCollide = true
+                end
+            end
+        end)
+    end
+    
+    if originalHumanoid then
+        pcall(function()
+            originalHumanoid.PlatformStand = false
+            originalHumanoid.WalkSpeed = 16
+            originalHumanoid.JumpPower = 50
+        end)
+    end
+    
+    if originalRoot then
+        pcall(function()
+            originalRoot.Anchored = false
+        end)
+    end
+    
+    npcCharacter = nil
+    originalCharacter = nil
+    originalHumanoid = nil
+    originalRoot = nil
+    isRunning = false
+end
+
+local function HideCharacter(character)
+    if not character then return end
+    
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
+            v.Transparency = 1
+            v.CanCollide = false
+        end
+    end
+end
+
+local function ShowCharacter(character)
+    if not character or not character.Parent then return end
+    
+    for _, v in ipairs(character:GetDescendants()) do
+        if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
+            v.Transparency = 0
+            v.CanCollide = true
+        end
+    end
+end
+
+local function CreateNPCAndHidePlayer()
+    local character = player.Character
+    if not character then 
+        return nil 
+    end
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoid or not rootPart then 
+        return nil 
+    end
+    
+    originalCharacter = character
+    originalHumanoid = humanoid
+    originalRoot = rootPart
+    
+    HideCharacter(character)
+    
+    humanoid.PlatformStand = true
+    humanoid.WalkSpeed = 0
+    humanoid.JumpPower = 0
+    rootPart.Anchor
