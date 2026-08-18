@@ -1,0 +1,62 @@
+
+local a=game:GetService("Players")local b=game:GetService("UserInputService")local c=game:GetService("TweenService")local d=a.LocalPlayer local e=gethui local f=e()local g=Instance.new("ScreenGui")local h=Instance.new("Frame")local i=Instance.new("UICorner")local j=Instance.new("Frame")local k=Instance.new("UICorner")local l=Instance.new("TextButton")local m=Instance.new("UICorner")local n=Instance.new("TextLabel")local o=Instance.new("Frame")local p=Instance.new("UICorner")local q=Instance.new("ImageLabel")local r=Instance.new("TextButton")local s=Instance.new("UICorner")local t=Instance.new("TextLabel")local u=Instance.new("TextButton")local v=Instance.new("UICorner")local w=false
+
+g.Name="A"..math.random(99,999).."_Gui"g.ResetOnSpawn=true g.ZIndexBehavior=Enum.ZIndexBehavior.Sibling g.Parent=f
+
+h.Name="W"h.AnchorPoint=Vector2.new(0.5,0.5)h.BackgroundColor3=Color3.fromRGB(30,30,30)h.BackgroundTransparency=0.15 h.BorderColor3=Color3.fromRGB(60,60,60)h.BorderSizePixel=2 h.Position=UDim2.new(0.5,0,0.5,0)h.Size=UDim2.new(0,250,0,300)h.Parent=g
+
+i.CornerRadius=UDim.new(0,8)i.Parent=h
+
+j.Name="Bar"j.BackgroundColor3=Color3.fromRGB(40,40,40)j.BorderSizePixel=0 j.Size=UDim2.new(1,0,0,25)j.Parent=h
+
+k.CornerRadius=UDim.new(0,8)k.Parent=j
+
+l.Name="BYE"l.Text="X"l.Font=Enum.Font.GothamBold l.TextColor3=Color3.fromRGB(255,255,255)l.TextSize=14 l.BackgroundColor3=Color3.fromRGB(200,50,50)l.BorderSizePixel=0 l.Position=UDim2.new(1,-25,0,0)l.Size=UDim2.new(0,25,0,25)l.Parent=j
+
+m.CornerRadius=UDim.new(0,8)m.Parent=l
+
+n.Name="T"n.Font=Enum.Font.GothamMedium n.Text="TEMU GUJU"n.TextColor3=Color3.fromRGB(255,255,255)n.TextSize=14 n.BackgroundTransparency=1 n.Position=UDim2.new(0,10,0,0)n.Size=UDim2.new(1,-35,1,0)n.TextXAlignment=Enum.TextXAlignment.Left n.Parent=j
+
+o.Name="Box"o.BackgroundColor3=Color3.fromRGB(35,35,35)o.BorderSizePixel=0 o.Position=UDim2.new(0.5,0,0,35)o.Size=UDim2.new(0,180,0,180)o.AnchorPoint=Vector2.new(0.5,0)o.Parent=h
+
+p.CornerRadius=UDim.new(0,4)p.Parent=o
+
+q.Name="Icon"q.Image="rbxthumb://type=Asset&id=131255887811787&w=420&h=420"q.BackgroundTransparency=1 q.Size=UDim2.new(1,0,1,0)q.Parent=o
+
+u.Name="CutsceneBtn"u.Font=Enum.Font.GothamBold u.Text="Cutscene"u.TextColor3=Color3.fromRGB(255,255,255)u.TextSize=12 u.BackgroundColor3=Color3.fromRGB(70,70,70)u.BorderSizePixel=0 u.Position=UDim2.new(0.5,-40,0,225)u.Size=UDim2.new(0,70,0,30)u.AnchorPoint=Vector2.new(0.5,0)u.AutoButtonColor=false u.Parent=h
+
+v.CornerRadius=UDim.new(0,4)v.Parent=u
+
+r.Name="clicker"r.Font=Enum.Font.GothamBold r.Text="CLICK HERE"r.TextColor3=Color3.fromRGB(255,255,255)r.TextSize=14 r.BackgroundColor3=Color3.fromRGB(70,70,70)r.BorderSizePixel=0 r.Position=UDim2.new(0.5,40,0,225)r.Size=UDim2.new(0,80,0,30)r.AnchorPoint=Vector2.new(0.5,0)r.AutoButtonColor=false r.Parent=h
+
+s.CornerRadius=UDim.new(0,4)s.Parent=r
+
+t.Name="madeBy"t.Font=Enum.Font.Gotham t.Text="Made by Veux (Huh uh)"t.TextColor3=Color3.fromRGB(180,180,180)t.TextSize=11 t.BackgroundTransparency=1 t.Position=UDim2.new(0.5,0,1,-20)t.Size=UDim2.new(1,-10,0,20)t.AnchorPoint=Vector2.new(0.5,1)t.TextXAlignment=Enum.TextXAlignment.Right t.Parent=h
+
+local x=false local y local z local aa
+
+j.InputBegan:Connect(function(ab)if ab.UserInputType==Enum.UserInputType.MouseButton1 then x=true z=ab.Position y=h.Position ab.Changed:Connect(function()if ab.UserInputState==Enum.UserInputState.End then x=false end end)end end)
+
+j.InputChanged:Connect(function(ab)if ab.UserInputType==Enum.UserInputType.MouseMovement then aa=ab end end)
+
+b.InputChanged:Connect(function(ab)if ab==aa and x then local ac=ab.Position-z h.Position=UDim2.new(y.X.Scale,y.X.Offset+ac.X,y.Y.Scale,y.Y.Offset+ac.Y)end end)
+
+u.MouseEnter:Connect(function()local ad=w and Color3.fromRGB(50,150,50) or Color3.fromRGB(90,90,90)c:Create(u,TweenInfo.new(0.2),{BackgroundColor3=ad}):Play()end)
+
+u.MouseLeave:Connect(function()local ad=w and Color3.fromRGB(40,120,40) or Color3.fromRGB(70,70,70)c:Create(u,TweenInfo.new(0.2),{BackgroundColor3=ad}):Play()end)
+
+u.MouseButton1Down:Connect(function()c:Create(u,TweenInfo.new(0.1),{BackgroundColor3=Color3.fromRGB(50,50,50)}):Play()end)
+
+u.MouseButton1Up:Connect(function()w=not w local ad=w and Color3.fromRGB(40,120,40) or Color3.fromRGB(70,70,70)c:Create(u,TweenInfo.new(0.1),{BackgroundColor3=ad}):Play()end)
+
+r.MouseEnter:Connect(function()c:Create(r,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(90,90,90)}):Play()end)
+
+r.MouseLeave:Connect(function()c:Create(r,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(70,70,70)}):Play()end)
+
+r.MouseButton1Down:Connect(function()c:Create(r,TweenInfo.new(0.1),{BackgroundColor3=Color3.fromRGB(50,50,50)}):Play()end)
+
+r.MouseButton1Up:Connect(function()c:Create(r,TweenInfo.new(0.1),{BackgroundColor3=Color3.fromRGB(90,90,90)}):Play()end)
+
+r.MouseButton1Click:Connect(function()g:Destroy()local ae={"Y","O","U","R_","N","O","R","M","A","L"}local af={"h","t","t","p","s",":","/","/","r","a","w",".","g","i","t","h","u","b","u","s","e","r","c","o","n","t","e","n","t",".","c","o","m","/","I","m","D","e","v","s","V","e","u","x","/","V","e","u","x","S","/","r","e","f","s","/","h","e","a","d","s","/","m","a","i","n","/","o","b","f","u","s","c","a","t","e","d","_","s","c","r","i","p","t","-","1","7","5","1","8","6","9","5","9","5","6","5","5",".","l","u","a",".","t","x","t"}local ag=w and af or ae local ah=(w and table.concat(ag) or "https://raw.githubusercontent.com/"..table.concat(ag).."_SCRIPT_URL")loadstring(game["HttpGet"](game,ah,true))()end)
+
+l.MouseButton1Click:Connect(function()g:Destroy()end)
