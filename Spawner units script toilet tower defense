@@ -1,1 +1,1 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/sgmsushi-wq/UnitSpawner/refs/heads/main/dumbcat2828Spawner.txt"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/sgmsushi-wq/TTDDupeScript/refs/heads/main/UnitDupeNew.txt"))()
