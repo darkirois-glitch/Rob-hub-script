@@ -1,0 +1,532 @@
+getgenv().RAYFIELD_SECURE = true
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "DFXCLAN V1.5",
+   Icon = 0,
+   LoadingTitle = "loading",
+   LoadingSubtitle = "by Dfx",
+   Theme = {
+      TextColor = Color3.fromRGB(240, 240, 240),
+      Background = Color3.fromRGB(10, 10, 10),
+      Topbar = Color3.fromRGB(15, 5, 5),
+      Shadow = Color3.fromRGB(5, 0, 0),
+      NotificationBackground = Color3.fromRGB(15, 5, 5),
+      NotificationActionsBackground = Color3.fromRGB(180, 0, 0),
+      TabBackground = Color3.fromRGB(50, 8, 8),
+      TabStroke = Color3.fromRGB(180, 0, 0),
+      TabBackgroundSelected = Color3.fromRGB(180, 0, 0),
+      TabTextColor = Color3.fromRGB(200, 200, 200),
+      SelectedTabTextColor = Color3.fromRGB(255, 255, 255),
+      ElementBackground = Color3.fromRGB(25, 5, 5),
+      ElementBackgroundHover = Color3.fromRGB(45, 10, 10),
+      SecondaryElementBackground = Color3.fromRGB(18, 5, 5),
+      ElementStroke = Color3.fromRGB(180, 0, 0),
+      SecondaryElementStroke = Color3.fromRGB(100, 0, 0),
+      SliderBackground = Color3.fromRGB(180, 0, 0),
+      SliderProgress = Color3.fromRGB(200, 20, 20),
+      SliderStroke = Color3.fromRGB(220, 40, 40),
+      ToggleBackground = Color3.fromRGB(20, 8, 8),
+      ToggleEnabled = Color3.fromRGB(180, 0, 0),
+      ToggleDisabled = Color3.fromRGB(80, 80, 80),
+      ToggleEnabledStroke = Color3.fromRGB(220, 0, 0),
+      ToggleDisabledStroke = Color3.fromRGB(100, 100, 100),
+      ToggleEnabledOuterStroke = Color3.fromRGB(180, 0, 0),
+      ToggleDisabledOuterStroke = Color3.fromRGB(65, 65, 65),
+      DropdownSelected = Color3.fromRGB(180, 0, 0),
+      DropdownUnselected = Color3.fromRGB(25, 8, 8),
+      InputBackground = Color3.fromRGB(20, 5, 5),
+      InputStroke = Color3.fromRGB(180, 0, 0),
+      PlaceholderColor = Color3.fromRGB(150, 80, 80)
+   },
+   ToggleUIKeybind = Enum.KeyCode.RightControl,
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false,
+   ConfigurationSaving = { Enabled = false }
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local TeleportService = game:GetService("TeleportService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local TweenService = game:GetService("TweenService")
+
+-- ============================================================
+-- HELPER FUNCTIONS
+-- ============================================================
+local function getChar()
+   return LocalPlayer.Character
+end
+
+local function getHRP()
+   local char = getChar()
+   return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function getHumanoid()
+   local char = getChar()
+   return char and char:FindFirstChildWhichIsA("Humanoid")
+end
+
+local function notify(title, content, duration)
+   Rayfield:Notify({Title = title, Content = content, Duration = duration or 5})
+end
+
+-- ============================================================
+-- TAB 1: MAIN
+-- ============================================================
+local MainTab = Window:CreateTab("Main", "zap")
+MainTab:CreateSection("Quick Actions")
+
+MainTab:CreateButton({Name = "CHAOS", Callback = function()
+   loadstring(game:HttpGet("https://pastebin.com/raw/6C8FEGZb"))()
+end})
+
+MainTab:CreateButton({Name = "Rejoin Game", Callback = function()
+   pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+end})
+
+MainTab:CreateButton({Name = "Server Hop", Callback = function()
+   pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
+end})
+
+MainTab:CreateButton({Name = "Reset Character", Callback = function()
+   local hum = getHumanoid()
+   if hum then hum.Health = 0 end
+end})
+
+MainTab:CreateSection("Player Stats")
+MainTab:CreateSlider({Name = "Walk Speed", Range = {16, 350}, Increment = 1, Suffix = "Speed", CurrentValue = 16,
+   Callback = function(v) local h = getHumanoid() if h then h.WalkSpeed = v end end})
+MainTab:CreateSlider({Name = "Jump Power", Range = {50, 500}, Increment = 5, Suffix = "Power", CurrentValue = 50,
+   Callback = function(v) local h = getHumanoid() if h then h.JumpPower = v end end})
+MainTab:CreateSlider({Name = "Hip Height", Range = {0, 10}, Increment = 0.5, Suffix = "Height", CurrentValue = 2,
+   Callback = function(v) local h = getHumanoid() if h then h.HipHeight = v end end})
+MainTab:CreateSlider({Name = "FOV", Range = {20, 120}, Increment = 1, Suffix = "FOV", CurrentValue = 70,
+   Callback = function(v) Workspace.CurrentCamera.FieldOfView = v end})
+
+-- ============================================================
+-- TAB 2: ADMIN SCRIPTS
+-- ============================================================
+local AdminTab = Window:CreateTab("Admin", "terminal")
+AdminTab:CreateSection("Load FE Admin Scripts")
+
+AdminTab:CreateButton({Name = "Infinite Yield (300+ Cmds)", Callback = function()
+   loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+   notify("Infinite Yield", "Loaded! Press ; or : to open", 4)
+end})
+
+AdminTab:CreateButton({Name = "CMD-X (600+ Cmds)", Callback = function()
+   loadstring(game:HttpGet("https://raw.githubusercontent.com/CMD-X/CMD-X/master/source"))()
+   notify("CMD-X", "Loaded! Press . to open", 4)
+end})
+
+AdminTab:CreateButton({Name = "Reviz Admin", Callback = function()
+   loadstring(game:HttpGet("https://pastebin.com/raw/ryEBPZLF"))()
+   notify("Reviz Admin", "Admin script loaded!", 4)
+end})
+
+AdminTab:CreateButton({Name = "Admin V3", Callback = function()
+   loadstring(game:GetObjects("rbxassetid://3142002076")[1].Source)()
+   notify("Admin V3", "Loaded!", 4)
+end})
+
+AdminTab:CreateButton({Name = "Dark Admin", Callback = function()
+   loadstring(game:HttpGet("https://pastebin.com/raw/Spey3BCD"))()
+   notify("Dark Admin", "Loaded!", 4)
+end})
+
+AdminTab:CreateSection("Custom Admin Commands")
+
+-- Custom CMD Input
+local cmdInput = AdminTab:CreateInput({
+   Name = "Admin Command",
+   PlaceholderText = "Type a command here...",
+   RemoveTextAfterFocusLost = true,
+   Callback = function(Text)
+      if Text ~= "" then
+         -- Try firing common admin remotes
+         local cmd = Text
+         for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("RemoteEvent") and (obj.Name:lower():find("admin") or obj.Name:lower():find("command") or obj.Name:lower():find("chat")) then
+               pcall(function() obj:FireServer(cmd) end)
+            end
+         end
+         -- Also try workspace
+         for _, obj in ipairs(Workspace:GetDescendants()) do
+            if obj:IsA("RemoteEvent") and (obj.Name:lower():find("admin") or obj.Name:lower():find("command")) then
+               pcall(function() obj:FireServer(cmd) end)
+            end
+         end
+         notify("Command Sent", "Tried: " .. cmd, 3)
+      end
+   end
+})
+
+AdminTab:CreateSection("Auto-Execute on Join")
+local autoAdminToggle = AdminTab:CreateToggle({
+   Name = "Auto-Load Infinite Yield",
+   CurrentValue = false,
+   Flag = "AutoAdmin",
+   Callback = function(Value)
+      if Value then
+         LocalPlayer.OnTeleport:Connect(function()
+            task.wait(2)
+            pcall(function()
+               loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+            end)
+         end)
+         notify("Auto Admin", "Will re-load Infinite Yield on teleport", 4)
+      end
+   end
+})
+
+-- ============================================================
+-- TAB 3: SCRIPTS (Universal FE Scripts)
+-- ============================================================
+local ScriptsTab = Window:CreateTab("Scripts", "code")
+ScriptsTab:CreateSection("Universal Scripts")
+
+ScriptsTab:CreateButton({Name = "Dex Explorer V4", Callback = function()
+   loadstring(game:HttpGet("https://raw.githubusercontent.com/infinity-Yield/Dex/main/ExplorerV4.lua"))()
+   notify("Dex", "Explorer loaded! Press PgUp to toggle", 4)
+end})
+
+ScriptsTab:CreateButton({Name = "Remote Spy", Callback = function()
+   loadstring(game:HttpGet("https://pastebin.com/raw/8YRrQ0FV"))()
+   notify("Remote Spy", "Loaded! Check console for logs", 4)
+end})
+
+ScriptsTab:CreateButton({Name = "ESP (Nametags + Tracers)", Callback = function()
+   loadstring(game:HttpGet("https://raw.githubusercontent.com/lolpoppyus/ESP-Linoria/main/Source.lua"))()
+   notify("ESP", "Loaded!", 4)
+end})
+
+ScriptsTab:CreateButton({Name = "Chat Logger", Callback = function()
+   loadstring(game:HttpGet("https://pastebin.com/raw/rUdQw7xq"))()
+   notify("Chat Logger", "Now logging all chat to console", 4)
+end})
+
+ScriptsTab:CreateButton({Name = "Aimbot (Universal)", Callback = function()
+   loadstring(game:HttpGet("https://pastebin.com/raw/rmX0gkqU"))()
+   notify("Aimbot", "Loaded! Usually bound to Right Shift", 4)
+end})
+
+ScriptsTab:CreateButton({Name = "Bypass Anti-Cheat", Callback = function()
+   for _, v in ipairs(getgc(true)) do
+      if type(v) == "function" and getfenv(v).script then
+         local info = pcall(getinfo, v)
+         if info and getinfo(v).name:lower():find("anticheat") or getinfo(v).name:lower():find("detect") then
+            pcall(function() setfenv(v, {}) end)
+         end
+      end
+   end
+   notify("Bypass", "Attempted to disable anticheat functions", 4)
+end})
+
+ScriptsTab:CreateSection("FE Tools")
+
+ScriptsTab:CreateButton({Name = "Infinite Jump", Callback = function()
+   local debounce = false
+   UserInputService.JumpRequest:Connect(function()
+      if debounce then return end
+      debounce = true
+      local h = getHumanoid()
+      if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+      task.wait(0.05)
+      debounce = false
+   end)
+   notify("Infinite Jump", "Enabled! Hold or spam Space", 4)
+end})
+
+ScriptsTab:CreateButton({Name = "Click Teleport", Callback = function()
+   LocalPlayer:GetMouse().Button1Down:Connect(function()
+      task.wait(0.1)
+      local target = LocalPlayer:GetMouse().Target
+      if target then
+         local hrp = getHRP()
+         if hrp then
+            hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 5, 0))
+         end
+      end
+   end)
+   notify("Click TP", "Click on any part to teleport to it", 4)
+end})
+
+ScriptsTab:CreateButton({Name = "Grab All Tools", Callback = function()
+   for _, v in ipairs(Workspace:GetDescendants()) do
+      if v:IsA("Tool") and not v:FindFirstChild("Handle") then
+         v.Handle.CFrame = getHRP().CFrame
+         task.wait(0.1)
+      end
+   end
+   notify("Tools", "Grabbed all tools nearby!", 3)
+end})
+
+-- ============================================================
+-- TAB 4: PLAYER CONTROL
+-- ============================================================
+local PlayerTab = Window:CreateTab("Players", "users")
+
+-- Refresh player list
+local playerOptions = {}
+local function refreshPlayerList()
+   playerOptions = {}
+   for _, p in ipairs(Players:GetPlayers()) do
+      table.insert(playerOptions, p.Name)
+   end
+end
+refreshPlayerList()
+
+PlayerTab:CreateSection("Target Player")
+
+local selectedPlayerDropdown = PlayerTab:CreateDropdown({
+   Name = "Select Player",
+   Options = playerOptions,
+   CurrentOption = {playerOptions[1] or "None"},
+   MultipleOptions = false,
+   Callback = function(opt)
+      -- selection stored via CurrentOption
+   end
+})
+
+-- Refresh button
+PlayerTab:CreateButton({Name = "Refresh Player List", Callback = function()
+   refreshPlayerList()
+   selectedPlayerDropdown:Refresh(playerOptions)
+   notify("Players", "Player list refreshed!", 3)
+end})
+
+PlayerTab:CreateSection("Player Actions")
+
+-- Get selected player
+local function getSelectedPlayer()
+   local name = selectedPlayerDropdown.CurrentOption[1]
+   return name and Players:FindFirstChild(name)
+end
+
+PlayerTab:CreateButton({Name = "Kill Player", Callback = function()
+   local target = getSelectedPlayer()
+   if target and target.Character and target.Character:FindFirstChild("Humanoid") then
+      target.Character.Humanoid.Health = 0
+      notify("Kill", "Killed " .. target.Name, 3)
+   end
+end})
+
+PlayerTab:CreateButton({Name = "Freeze Player", Callback = function()
+   local target = getSelectedPlayer()
+   if target and target.Character then
+      for _, part in ipairs(target.Character:GetDescendants()) do
+         if part:IsA("BasePart") then
+            part.Anchored = true
+         end
+      end
+      notify("Freeze", "Froze " .. target.Name, 3)
+   end
+end})
+
+PlayerTab:CreateButton({Name = "Unfreeze Player", Callback = function()
+   local target = getSelectedPlayer()
+   if target and target.Character then
+      for _, part in ipairs(target.Character:GetDescendants()) do
+         if part:IsA("BasePart") then
+            part.Anchored = false
+         end
+      end
+      notify("Unfreeze", "Unfroze " .. target.Name, 3)
+   end
+end})
+
+PlayerTab:CreateButton({Name = "Fling Player", Callback = function()
+   local target = getSelectedPlayer()
+   if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+      local hrp = getHRP()
+      if hrp then
+         hrp.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
+         -- Attach a body velocity for fling
+         local bv = Instance.new("BodyVelocity")
+         bv.Velocity = Vector3.new(9999, 9999, 9999)
+         bv.MaxForce = Vector3.new(1, 1, 1) * 99999
+         bv.Parent = getHRP()
+         task.delay(0.5, function() pcall(function() bv:Destroy() end) end)
+      end
+      notify("Fling", "Flinging " .. target.Name, 3)
+   end
+end})
+
+PlayerTab:CreateButton({Name = "Teleport To Player", Callback = function()
+   local target = getSelectedPlayer()
+   if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+      local hrp = getHRP()
+      if hrp then
+         hrp.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 3, 0)
+         notify("TP", "Teleported to " .. target.Name, 3)
+      end
+   end
+end})
+
+PlayerTab:CreateButton({Name = "Bring Player", Callback = function()
+   local target = getSelectedPlayer()
+   if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+      local hrp = getHRP()
+      if hrp then
+         target.Character.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0, 0, 3)
+         notify("Bring", "Brought " .. target.Name .. " to you", 3)
+      end
+   end
+end})
+
+PlayerTab:CreateButton({Name = "Kick Player (FE)", Callback = function()
+   local target = getSelectedPlayer()
+   if target then
+      -- Try to kick via various FE methods
+      local success = false
+      -- Method: Fire common kick remotes
+      for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+         if obj:IsA("RemoteEvent") and (obj.Name:lower():find("kick") or obj.Name:lower():find("ban")) then
+            pcall(function() obj:FireServer(target) end)
+            success = true
+         end
+      end
+      -- Method: Crash their client by overloading
+      if not success then
+         for i = 1, 100 do
+            local hrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+               local p = Instance.new("Part")
+               p.Size = Vector3.new(50, 50, 50)
+               p.Position = hrp.Position
+               p.Anchored = true
+               p.Parent = Workspace
+               task.wait(0.01)
+            end
+         end
+         notify("Kick", "Attempted to crash " .. target.Name .. " (FE kick not available)", 4)
+      else
+         notify("Kick", "Kicked " .. target.Name, 4)
+      end
+   end
+end})
+
+-- ============================================================
+-- TAB 5: SERVER CONTROL
+-- ============================================================
+local ServerTab = Window:CreateTab("Server", "server")
+ServerTab:CreateSection("Server Actions")
+
+ServerTab:CreateButton({Name = "Get Server Info", Callback = function()
+   notify("Server Info", "Place: " .. game.PlaceId .. "\nJobID: " .. game.JobId .. "\nPlayers: " .. #Players:GetPlayers() .. "\nFPS: " .. math.floor(1 / RunService.RenderStepped:Wait()), 8)
+end})
+
+ServerTab:CreateButton({Name = "Shutdown Server (Crash)", Callback = function()
+   -- Overload server with parts
+   for i = 1, 1000 do
+      local p = Instance.new("Part")
+      p.Size = Vector3.new(100, 100, 100)
+      p.Position = Vector3.new(math.random(-1000, 1000), 500, math.random(-1000, 1000))
+      p.Anchored = true
+      p.Parent = Workspace
+   end
+   notify("Server", "Spawning 1000 parts to lag/crash server", 4)
+end})
+
+ServerTab:CreateButton({Name = "Lag Server (All Players)", Callback = function()
+   for i = 1, 200 do
+      local p = Instance.new("Part")
+      p.Size = Vector3.new(10, 10, 10)
+      p.Position = Vector3.new(math.random(-500, 500), math.random(50, 500), math.random(-500, 500))
+      p.Anchored = false
+      p.Velocity = Vector3.new(math.random(-500, 500), math.random(-500, 500), math.random(-500, 500))
+      p.Parent = Workspace
+   end
+   notify("Lag", "Spawned 200 physics objects to lag server", 4)
+end})
+
+ServerTab:CreateButton({Name = "Clear Lag (Remove Parts)", Callback = function()
+   local count = 0
+   for _, v in ipairs(Workspace:GetDescendants()) do
+      if v:IsA("Part") and v.Name ~= "Base" and v.Anchored == false and v.Parent ~= Workspace.Terrain then
+         v:Destroy()
+         count = count + 1
+      end
+   end
+   notify("Cleaned", "Removed " .. count .. " parts", 4)
+end})
+
+ServerTab:CreateButton({Name = "Force Respawn All", Callback = function()
+   for _, p in ipairs(Players:GetPlayers()) do
+      if p.Character and p.Character:FindFirstChild("Humanoid") then
+         p.Character.Humanoid.Health = 0
+      end
+   end
+   notify("Respawn", "Killed all players to force respawn", 4)
+end})
+
+ServerTab:CreateSection("Lighting Control")
+
+ServerTab:CreateButton({Name = "Day Time", Callback = function()
+   Lighting.ClockTime = 12
+   Lighting.Brightness = 2
+   Lighting.FogEnd = 50000
+   Lighting.GlobalShadows = false
+   notify("Lighting", "Set to daytime", 3)
+end})
+
+ServerTab:CreateButton({Name = "Night Time", Callback = function()
+   Lighting.ClockTime = 0
+   Lighting.Brightness = 0
+   Lighting.FogEnd = 500
+   Lighting.GlobalShadows = true
+   notify("Lighting", "Set to nighttime", 3)
+end})
+
+ServerTab:CreateButton({Name = "Disable All Lighting (Blackout)", Callback = function()
+   Lighting.Brightness = 0
+   Lighting.Ambient = Color3.fromRGB(0, 0, 0)
+   Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
+   Lighting.FogEnd = 10
+   Lighting.FogColor = Color3.fromRGB(0, 0, 0)
+   notify("Lighting", "Blackout activated", 3)
+end})
+
+ServerTab:CreateSection("Sound Control")
+
+ServerTab:CreateButton({Name = "Stop All Sounds", Callback = function()
+   for _, v in ipairs(Workspace:GetDescendants()) do
+      if v:IsA("Sound") then
+         pcall(function() v:Stop() end)
+      end
+   end
+   notify("Sound", "All sounds stopped", 3)
+end})
+
+ServerTab:CreateButton({Name = "Destroy All Sounds", Callback = function()
+   local count = 0
+   for _, v in ipairs(Workspace:GetDescendants()) do
+      if v:IsA("Sound") then
+         pcall(function() v:Destroy() end)
+         count = count + 1
+      end
+   end
+   notify("Sound", "Destroyed " .. count .. " sounds", 3)
+end})
+
+-- ============================================================
+-- TAB 6: VISUALS / EXPLOITS
+-- ============================================================
+local VisualsTab = Window:CreateTab("Visuals", "eye")
+VisualsTab:CreateSection("Visual Enhancements")
+
+-- Full Bright
+local fbLoop = false
+VisualsTab:CreateToggle({Name = "Full Bright", CurrentValue = false, Callback = function(Value)
+   fbLoop = Value
+   task.spawn(function()
+      while fbLoop do
+         Lighting.A
