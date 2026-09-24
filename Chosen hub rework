@@ -1,0 +1,2031 @@
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/gen2"))()
+
+local window = Rayfield:CreateWindow({
+    name = "The Chosen Hub",
+    subtitle = "By Inky",
+    sidebarLayout = true,
+    theme = "default",
+})
+
+local homeTab = window:CreateTab({ Name = "Home", Icon = 0 })
+
+homeTab:CreateSection({ Name = "Featured" })
+
+homeTab:CreateButton({ Name = "Infinite Yield", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/edgeiy/infiniteyield/master/source"))() 
+end })
+
+homeTab:CreateButton({ Name = "Nameless Admin", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/ltseverydayyou/Nameless-Admin/main/Source.lua"))() 
+end })
+
+homeTab:CreateButton({ Name = "Dex Explorer", Callback = function() 
+    loadstring(game:HttpGet("https://github.com/AZYsGithub/DexPlusPlus/releases/latest/download/out.lua"))() 
+end })
+
+homeTab:CreateButton({ Name = "Remote Spy", Callback = function() 
+    loadstring(game:HttpGet("https://github.com/exxtremestuffs/SimpleSpySource/raw/master/SimpleSpy.lua"))() 
+end })
+
+homeTab:CreateButton({
+    Name = "Copy Discord Link",
+    Callback = function()
+        setclipboard("https://discord.gg/wf7Ex6Kzf3")
+        
+        window:Toast({
+            Title = "Link Copied!",
+            Content = "Discord invite copied to clipboard. Go paste it in your browser!",
+            Icon = 125823673784681, 
+            Duration = 5
+        })
+    end,
+})
+
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+
+getgenv().EspEnabled = false
+getgenv().EspColor = Color3.fromRGB(96, 205, 255)
+getgenv().ESPData = getgenv().ESPData or {}
+
+local CoreGui = game:GetService("CoreGui")
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local function getGui(name)
+    local gui = CoreGui:FindFirstChild(name)
+
+    if gui then
+        return gui
+    end
+
+    gui = Instance.new("ScreenGui")
+    gui.Name = name
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local success = pcall(function()
+        gui.Parent = CoreGui
+    end)
+
+    if not success then
+        gui.Parent = PlayerGui
+    end
+
+    return gui
+end
+
+local EspGui = getGui("Rayfield2D_EspGui")
+local TracerGui = getGui("RayfieldTracers_Gui")
+
+local function getCamera()
+    return workspace.CurrentCamera
+end
+
+local function destroyVisuals(data)
+    if not data then
+        return
+    end
+
+    if data.RenderConnection then
+        data.RenderConnection:Disconnect()
+        data.RenderConnection = nil
+    end
+
+    if data.Highlight then
+        data.Highlight:Destroy()
+        data.Highlight = nil
+    end
+
+    if data.Billboard then
+        data.Billboard:Destroy()
+        data.Billboard = nil
+    end
+
+    if data.Box then
+        data.Box:Destroy()
+        data.Box = nil
+    end
+
+    if data.Tracer then
+        data.Tracer:Destroy()
+        data.Tracer = nil
+    end
+end
+
+local function cleanupPlayer(player)
+    local data = getgenv().ESPData[player]
+
+    if not data then
+        return
+    end
+
+    destroyVisuals(data)
+
+    if data.CharacterConnection then
+        data.CharacterConnection:Disconnect()
+        data.CharacterConnection = nil
+    end
+
+    getgenv().ESPData[player] = nil
+end
+
+local function getAvatarParts(character)
+    if not character then
+        return nil, nil
+    end
+
+    local root =
+        character:FindFirstChild("HumanoidRootPart")
+        or character.PrimaryPart
+
+    local head = character:FindFirstChild("Head")
+    
+    if not root or not root:IsA("BasePart") then
+        root = nil
+
+        for _, obj in ipairs(character:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Transparency < 1 then
+                root = obj
+                break
+            end
+        end
+    end
+    
+    if not head or not head:IsA("BasePart") then
+        head = root
+    end
+
+    return root, head
+end
+
+local function createESP(player, character)
+    if player == LocalPlayer then
+        return
+    end
+
+    if not getgenv().EspEnabled then
+        return
+    end
+
+    if not character or player.Character ~= character then
+        return
+    end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+    if not humanoid then
+        return
+    end
+
+    local rootPart, head = getAvatarParts(character)
+
+    if not rootPart or not head then
+        task.delay(0.5, function()
+            if getgenv().EspEnabled
+                and player.Character == character
+                and character:IsDescendantOf(workspace)
+            then
+                createESP(player, character)
+            end
+        end)
+
+        return
+    end
+
+    local data = getgenv().ESPData[player]
+
+    if not data then
+        data = {}
+        getgenv().ESPData[player] = data
+    end
+
+    destroyVisuals(data)
+
+    data.Character = character
+    data.RootPart = rootPart
+    data.Head = head
+    data.Humanoid = humanoid
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESPHighlight"
+    highlight.Adornee = character
+    highlight.FillColor = getgenv().EspColor
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Enabled = true
+    highlight.Parent = character
+
+    data.Highlight = highlight
+    
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESPInfo"
+    billboard.Adornee = head
+    billboard.Size = UDim2.fromOffset(200, 45)
+    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Enabled = true
+    billboard.Parent = character
+
+    data.Billboard = billboard
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextSize = 14
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.Parent = billboard
+
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Position = UDim2.fromOffset(0, 20)
+    distanceLabel.Size = UDim2.new(1, 0, 0, 18)
+    distanceLabel.Font = Enum.Font.SourceSansBold
+    distanceLabel.Text = "[0 studs]"
+    distanceLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+    distanceLabel.TextSize = 12
+    distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.Parent = billboard
+    
+    local box = Instance.new("Frame")
+    box.Name = player.Name .. "_ESPBox"
+    box.BackgroundTransparency = 1
+    box.BorderSizePixel = 0
+    box.Visible = false
+    box.Parent = EspGui
+
+    data.Box = box
+
+    local boxStroke = Instance.new("UIStroke")
+    boxStroke.Thickness = 1.5
+    boxStroke.Color = getgenv().EspColor
+    boxStroke.Parent = box
+    
+    local tracer = Instance.new("Frame")
+    tracer.Name = player.Name .. "_ESPTracer"
+    tracer.BackgroundTransparency = 1
+    tracer.BorderSizePixel = 0
+    tracer.Size = UDim2.fromScale(1, 1)
+    tracer.Visible = false
+    tracer.Parent = TracerGui
+
+    data.Tracer = tracer
+    
+    local tracerShadow = Instance.new("Frame")
+    tracerShadow.Name = "Shadow"
+    tracerShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    tracerShadow.BackgroundTransparency = 0.65
+    tracerShadow.BorderSizePixel = 0
+    tracerShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    tracerShadow.ZIndex = 1
+    tracerShadow.Parent = tracer
+    
+    local tracerLine = Instance.new("Frame")
+    tracerLine.Name = "Line"
+    tracerLine.BackgroundColor3 = getgenv().EspColor
+    tracerLine.BorderSizePixel = 0
+    tracerLine.AnchorPoint = Vector2.new(0.5, 0.5)
+    tracerLine.ZIndex = 2
+    tracerLine.Parent = tracer
+
+    data.RenderConnection = RunService.RenderStepped:Connect(function()
+        if not getgenv().EspEnabled then
+            highlight.Enabled = false
+            billboard.Enabled = false
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+
+        if player.Character ~= character
+            or not character:IsDescendantOf(workspace)
+            or humanoid.Health <= 0
+        then
+            highlight.Enabled = false
+            billboard.Enabled = false
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+        
+        local currentRoot, currentHead = getAvatarParts(character)
+
+        if currentRoot then
+            rootPart = currentRoot
+            data.RootPart = currentRoot
+        end
+
+        if currentHead then
+            head = currentHead
+            data.Head = currentHead
+
+            if billboard.Adornee ~= currentHead then
+                billboard.Adornee = currentHead
+            end
+        end
+
+        if not rootPart then
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+
+        local myCharacter = LocalPlayer.Character
+
+        if not myCharacter then
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+
+        local myRoot =
+            myCharacter:FindFirstChild("HumanoidRootPart")
+            or myCharacter.PrimaryPart
+
+        if not myRoot then
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+
+        local camera = getCamera()
+
+        if not camera then
+            return
+        end
+
+        local color = getgenv().EspColor
+
+        highlight.FillColor = color
+        boxStroke.Color = color
+        tracerLine.BackgroundColor3 = color
+        
+        local boundingCFrame, boundingSize =
+            character:GetBoundingBox()
+
+        local boundsCenter = boundingCFrame.Position
+
+        local distance =
+            (myRoot.Position - boundsCenter).Magnitude
+
+        distanceLabel.Text =
+            "[" .. math.floor(distance) .. " studs]"
+
+        highlight.Enabled = true
+        billboard.Enabled = true
+
+        if distance > 1000 then
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+        
+        local topWorld =
+            boundsCenter +
+            Vector3.new(0, boundingSize.Y / 2, 0)
+
+        local bottomWorld =
+            boundsCenter -
+            Vector3.new(0, boundingSize.Y / 2, 0)
+
+        local topScreen =
+            camera:WorldToViewportPoint(topWorld)
+
+        local bottomScreen =
+            camera:WorldToViewportPoint(bottomWorld)
+
+        if topScreen.Z <= 0 or bottomScreen.Z <= 0 then
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+
+        local height =
+            math.abs(bottomScreen.Y - topScreen.Y)
+
+        local width =
+            math.max(height * 0.55, 2)
+
+        if height < 2 then
+            box.Visible = false
+        else
+            box.Size =
+                UDim2.fromOffset(width, height)
+
+            box.Position =
+                UDim2.fromOffset(
+                    bottomScreen.X - width / 2,
+                    topScreen.Y
+                )
+
+            box.Visible = true
+        end
+         
+        local feetScreen, feetVisible =
+            camera:WorldToViewportPoint(bottomWorld)
+
+        if not feetVisible or feetScreen.Z <= 0 then
+            tracer.Visible = false
+            return
+        end
+
+        local startX =
+            camera.ViewportSize.X / 2
+
+        local startY =
+            camera.ViewportSize.Y
+
+        local endX = feetScreen.X
+        local endY = feetScreen.Y
+
+        local dx = endX - startX
+        local dy = endY - startY
+
+        local lineLength =
+            math.sqrt(dx * dx + dy * dy)
+
+        if lineLength <= 1 then
+            tracer.Visible = false
+            return
+        end
+
+        local angle =
+            math.deg(math.atan2(dy, dx))
+
+        local centerX =
+            (startX + endX) / 2
+
+        local centerY =
+            (startY + endY) / 2
+        
+        tracerLine.Size =
+            UDim2.fromOffset(lineLength, 2)
+
+        tracerLine.Position =
+            UDim2.fromOffset(centerX, centerY)
+
+        tracerLine.Rotation = angle
+        
+        tracerShadow.Size =
+            UDim2.fromOffset(lineLength, 4)
+
+        tracerShadow.Position =
+            UDim2.fromOffset(centerX, centerY)
+
+        tracerShadow.Rotation = angle
+
+        tracer.Visible = true
+    end)
+end
+
+local function setupPlayer(player)
+    if player == LocalPlayer then
+        return
+    end
+
+    local data = getgenv().ESPData[player]
+
+    if not data then
+        data = {}
+        getgenv().ESPData[player] = data
+    end
+
+    if data.CharacterConnection then
+        data.CharacterConnection:Disconnect()
+        data.CharacterConnection = nil
+    end
+
+    data.CharacterConnection =
+        player.CharacterAdded:Connect(function(character)
+            
+            local deadline = os.clock() + 5
+
+            repeat
+                task.wait(0.1)
+
+                if not getgenv().EspEnabled
+                    or player.Character ~= character
+                then
+                    return
+                end
+
+                if character:FindFirstChildOfClass("Humanoid")
+                    and character:FindFirstChildWhichIsA("BasePart", true)
+                then
+                    break
+                end
+
+            until os.clock() >= deadline
+
+            if getgenv().EspEnabled
+                and player.Character == character
+            then
+                createESP(player, character)
+            end
+        end)
+
+    if player.Character then
+        task.spawn(function()
+            local character = player.Character
+            local deadline = os.clock() + 5
+
+            repeat
+                task.wait(0.1)
+
+                if not getgenv().EspEnabled
+                    or player.Character ~= character
+                then
+                    return
+                end
+
+                if character:FindFirstChildOfClass("Humanoid")
+                    and character:FindFirstChildWhichIsA("BasePart", true)
+                then
+                    break
+                end
+
+            until os.clock() >= deadline
+
+            if getgenv().EspEnabled
+                and player.Character == character
+            then
+                createESP(player, character)
+            end
+        end)
+    end
+end
+
+getgenv().EnableESP = function()
+    getgenv().EspEnabled = true
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            setupPlayer(player)
+        end
+    end
+end
+
+getgenv().DisableESP = function()
+    getgenv().EspEnabled = false
+
+    for player in pairs(getgenv().ESPData) do
+        cleanupPlayer(player)
+    end
+end
+
+getgenv().RefreshESP = function()
+    if not getgenv().EspEnabled then
+        return
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local data = getgenv().ESPData[player]
+
+            if not data then
+                setupPlayer(player)
+
+            elseif data.Character ~= player.Character
+                and player.Character
+            then
+                createESP(player, player.Character)
+            end
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    if getgenv().EspEnabled then
+        setupPlayer(player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    cleanupPlayer(player)
+end)
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+
+    if getgenv().EspEnabled then
+        getgenv().RefreshESP()
+    end
+end)
+
+local espToggle = homeTab:CreateToggle({
+    name = "Player ESP",
+    flag = "PlayerESP",
+    value = false,
+    callback = function(value)
+        if value then
+            getgenv().EnableESP()
+        else
+            getgenv().DisableESP()
+        end
+    end,
+})
+
+homeTab:CreateColorPicker({
+    name = "Highlight Color",
+    color = getgenv().EspColor,
+    callback = function(color, alpha)
+        getgenv().EspColor = color
+    end,
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+getgenv().ChamsEnabled = false
+
+local ChamsTargets = {}
+local ChamsConnections = {}
+
+local function removeChams(player)
+    local data = ChamsTargets[player.Name]
+
+    if data and data.Highlight then
+        data.Highlight:Destroy()
+    end
+
+    ChamsTargets[player.Name] = nil
+
+    if ChamsConnections[player.Name] then
+        ChamsConnections[player.Name]:Disconnect()
+        ChamsConnections[player.Name] = nil
+    end
+end
+
+local function applyChams(player, character)
+    if player == LocalPlayer then return end
+    if not character then return end
+    if not getgenv().ChamsEnabled then return end
+    
+    local oldData = ChamsTargets[player.Name]
+    if oldData and oldData.Highlight then
+        oldData.Highlight:Destroy()
+    end
+
+    ChamsTargets[player.Name] = nil
+    
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
+
+    local rootPart = character:WaitForChild("HumanoidRootPart", 5)
+        or humanoid.RootPart
+        or character:FindFirstChildWhichIsA("BasePart")
+
+    if not rootPart then return end
+    
+    if not character:IsDescendantOf(workspace) then
+        return
+    end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "SoloChamsHighlight"
+    highlight.FillColor = getgenv().EspColor or Color3.fromRGB(96, 205, 255) -- Uses picker color, falls back to blue
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = character
+    highlight.Parent = character
+    highlight.Enabled = false
+
+    ChamsTargets[player.Name] = {
+        Player = player,
+        Character = character,
+        Highlight = highlight,
+        Root = rootPart,
+        Distance = 99999
+    }
+    
+    humanoid.Died:Connect(function()
+        if ChamsTargets[player.Name]
+            and ChamsTargets[player.Name].Character == character then
+
+            ChamsTargets[player.Name] = nil
+
+            if highlight then
+                highlight:Destroy()
+            end
+        end
+    end)
+end
+
+local function addChams(player)
+    if player == LocalPlayer then return end
+    
+    if ChamsConnections[player.Name] then
+        ChamsConnections[player.Name]:Disconnect()
+        ChamsConnections[player.Name] = nil
+    end
+    
+    if player.Character then
+        task.spawn(function()
+            applyChams(player, player.Character)
+        end)
+    end
+    
+    ChamsConnections[player.Name] = player.CharacterAdded:Connect(function(character)
+        if not getgenv().ChamsEnabled then return end
+        
+        task.wait(0.2)
+
+        if getgenv().ChamsEnabled then
+            applyChams(player, character)
+        end
+    end)
+end
+
+local function refreshAllChams()
+    if not getgenv().ChamsEnabled then return end
+    
+    for _, data in pairs(ChamsTargets) do
+        if data.Highlight then
+            data.Highlight:Destroy()
+        end
+    end
+
+    ChamsTargets = {}
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            addChams(player)
+        end
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if getgenv().ChamsEnabled and LocalPlayer.Character then
+            local myRoot =
+                LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                or LocalPlayer.Character:FindFirstChildWhichIsA("BasePart")
+
+            if myRoot then
+                local list = {}
+
+                for name, data in pairs(ChamsTargets) do
+                    if data.Root
+                        and data.Highlight
+                        and data.Root:IsDescendantOf(workspace)
+                        and data.Character
+                        and data.Character:IsDescendantOf(workspace) then
+
+                        data.Distance =
+                            math.floor((myRoot.Position - data.Root.Position).Magnitude)
+
+                        table.insert(list, {
+                            Name = name,
+                            Data = data
+                        })
+                    end
+                end
+
+                table.sort(list, function(a, b)
+                    return a.Data.Distance < b.Data.Distance
+                end)
+
+                for index, item in ipairs(list) do
+                    local highlight = item.Data.Highlight
+
+                    if highlight and highlight:IsDescendantOf(game) then
+                        highlight.FillColor = getgenv().EspColor or Color3.fromRGB(96, 205, 255)
+
+                        highlight.Enabled =
+                            index <= 28
+                            and item.Data.Distance <= 1000
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(30) do
+        if getgenv().ChamsEnabled then
+            refreshAllChams()
+        end
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+    if not getgenv().ChamsEnabled then return end
+    
+    character:WaitForChild("Humanoid", 5)
+    task.wait(0.5)
+
+    if getgenv().ChamsEnabled then
+        refreshAllChams()
+    end
+end)
+
+Players.PlayerAdded:Connect(function(player)
+    if getgenv().ChamsEnabled then
+        addChams(player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    removeChams(player)
+end)
+
+local chamsToggle = homeTab:CreateToggle({
+    name = "Player Chams",
+    flag = "PlayerChams",
+    value = false,
+
+    callback = function(value)
+        getgenv().ChamsEnabled = value
+
+        if value then
+            refreshAllChams()
+        else
+            for _, conn in pairs(ChamsConnections) do
+                if conn then
+                    conn:Disconnect()
+                end
+            end
+
+            ChamsConnections = {}
+            
+            for _, data in pairs(ChamsTargets) do
+                if data.Highlight then
+                    data.Highlight:Destroy()
+                end
+            end
+
+            ChamsTargets = {}
+        end
+    end,
+})
+
+chamsToggle:Set(false)
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+getgenv().FlyEnabled = false
+getgenv().FlySpeed = 50 
+
+local flyConnection = nil
+local bodyVelocity = nil
+local bodyGyro = nil
+
+local function startFlying()
+    local character = LocalPlayer.Character
+    if not character then return end
+    local rootPart = character:WaitForChild("HumanoidRootPart", 5)
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not rootPart or not humanoid then return end
+    
+    if bodyVelocity then bodyVelocity:Destroy() end
+    if bodyGyro then bodyGyro:Destroy() end
+    if flyConnection then flyConnection:Disconnect() end
+    
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.P = 9e4
+    bodyGyro.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bodyGyro.cframe = rootPart.CFrame
+    bodyGyro.Parent = rootPart
+
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.maxForce = Vector3.new(9e9, 9e9, 9e9)
+    bodyVelocity.Parent = rootPart
+    
+    flyConnection = RunService.RenderStepped:Connect(function()
+        if not getgenv().FlyEnabled or not character:IsDescendantOf(workspace) or not rootPart:IsDescendantOf(workspace) then
+            if flyConnection then flyConnection:Disconnect() flyConnection = nil end
+            return
+        end
+
+        local camera = workspace.CurrentCamera
+        local targetVelocity = Vector3.new(0, 0, 0)
+        
+        local moveDirection = humanoid.MoveDirection
+        
+        if moveDirection.Magnitude > 0 then
+            
+            local cameraLook = camera.CFrame.LookVector
+            local flatLook = Vector3.new(cameraLook.X, 0, cameraLook.Z).Unit
+            
+            local cameraRight = camera.CFrame.RightVector
+            local flatRight = Vector3.new(cameraRight.X, 0, cameraRight.Z).Unit
+            
+            local forwardAmount = moveDirection:Dot(flatLook)
+            local rightAmount = moveDirection:Dot(flatRight)
+            
+            local verticalForce = 0
+            if math.abs(forwardAmount) > 0.1 then
+                verticalForce = cameraLook.Y * forwardAmount
+            end
+            
+            local rawCombinedDirection = (flatLook * forwardAmount) + (flatRight * rightAmount) + Vector3.new(0, verticalForce, 0)
+            
+            if rawCombinedDirection.Magnitude > 0 then
+                targetVelocity = rawCombinedDirection.Unit * getgenv().FlySpeed
+            end
+        end
+        
+        bodyGyro.cframe = camera.CFrame
+        bodyVelocity.velocity = targetVelocity
+    end)
+end
+
+local function stopFlying()
+    if flyConnection then flyConnection:Disconnect() flyConnection = nil end
+    if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+end
+
+if getgenv().FlyResetConnection then getgenv().FlyResetConnection:Disconnect() end
+getgenv().FlyResetConnection = LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    if getgenv().FlyEnabled then startFlying() end
+end)
+
+local flyToggle = homeTab:CreateToggle({
+    name = "Fly Mode",
+    flag = "FlyModeToggle",
+    value = false,
+    callback = function(value)
+        getgenv().FlyEnabled = value
+        if getgenv().FlyEnabled then
+            startFlying()
+        else
+            stopFlying()
+        end
+    end,
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local noclipConnection = nil
+
+local noclipToggle = homeTab:CreateToggle({
+    name = "Noclip",
+    flag = "Noclip",
+    value = false, 
+    callback = function(value)
+        if value then
+            noclipConnection = RunService.Stepped:Connect(function()
+                if LocalPlayer.Character then
+                    for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                        if part:IsA("BasePart") and part.CanCollide then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            end)
+        else
+            
+            if noclipConnection then
+                noclipConnection:Disconnect()
+                noclipConnection = nil
+            end
+            
+            if LocalPlayer.Character then
+                for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+                
+                local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+                    task.wait() 
+                    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                end
+            end
+        end
+    end,
+})
+
+noclipToggle:Set(false)
+
+local flySpeedSlider = homeTab:CreateSlider({
+    name = "Flight Speed",
+    Range = {0, 250}, 
+    Increment = 1,
+    CurrentValue = 50, 
+    Suffix = " studs",
+    Flag = "FlySpeedSlider",
+    Callback = function(value)
+        getgenv().FlySpeed = value
+    end,
+})
+
+homeTab:CreateSlider({ 
+    Name = "Walkspeed", 
+    Range = { 20, 250 }, 
+    Increment = 1, 
+    CurrentValue = 16, 
+    Suffix = "studs", 
+    Callback = function(Value) 
+        local player = game:GetService("Players").LocalPlayer 
+        if player and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then 
+            player.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = Value 
+        end 
+    end 
+})
+
+homeTab:CreateSlider({
+    name = "Field of view",
+    range = { 70, 120 },
+    Increment = 1,
+    CurrentValue = 70,
+    suffix = "°",
+    callback = function(value)
+        workspace.CurrentCamera.FieldOfView = value
+    end,
+})
+
+homeTab:CreateSection({ Name = "Stats" })
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+getgenv().KillCount = 0
+
+local killStat = homeTab:CreateStat({
+    name = "Total Kills",
+    prefix = "",
+    value = getgenv().KillCount,
+    maxValue = 99999 
+})
+
+local function updateKillUI(newAmount)
+    getgenv().KillCount = newAmount
+    killStat:Set(getgenv().KillCount)
+end
+
+local cachedHealth = {}
+local processedVictims = {}
+
+local function trackLeaderstats(folder)
+    local killKeywords = {"kills", "kos", "wipeouts", "knockouts", "frags", "defeats", "streaks", "bounty"}
+    
+    local function checkValue(child)
+        if child:IsA("ValueBase") then
+            local childName = child.Name:lower()
+            for _, keyword in ipairs(killKeywords) do
+                if childName:find(keyword) then
+                    child.Changed:Connect(function(newValue)
+                        if newValue == 0 then
+                            updateKillUI(0) 
+                        elseif newValue > getgenv().KillCount then
+                            updateKillUI(newValue) 
+                        end
+                    end)
+                    if child.Value > getgenv().KillCount then
+                        updateKillUI(child.Value)
+                    end
+                    break
+                end
+            end
+        end
+    end
+    for _, child in ipairs(folder:GetChildren()) do checkValue(child) end
+    folder.ChildAdded:Connect(checkValue)
+end
+
+local function setupLocalPlayerStats()
+    local function onChildAdded(child)
+        if child.Name == "leaderstats" then trackLeaderstats(child) end
+    end
+    local currentLeaderstats = LocalPlayer:FindFirstChild("leaderstats")
+    if currentLeaderstats then trackLeaderstats(currentLeaderstats) end
+    LocalPlayer.ChildAdded:Connect(onChildAdded)
+end
+task.spawn(setupLocalPlayerStats)
+
+task.spawn(function()
+    while task.wait(0.1) do 
+        local myChar = LocalPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        
+        if myRoot then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    local char = player.Character
+                    local hum = char and char:FindFirstChildOfClass("Humanoid")
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    
+                    if hum and root then
+                        local pName = player.Name
+                        local currentHealth = hum.Health
+                        local previousHealth = cachedHealth[pName] or 100
+                        
+                        cachedHealth[pName] = currentHealth
+                        
+                        if (currentHealth <= 0 and previousHealth > 0) or (not char.Parent and previousHealth < 75) then
+                            if not processedVictims[pName] then
+                                
+                                processedVictims[pName] = true
+                                task.delay(3, function() processedVictims[pName] = nil end)
+                                
+                                local distance = (myRoot.Position - root.Position).Magnitude
+                                if distance <= 28 then
+                                    local current = getgenv().KillCount
+                                    task.wait(0.05) 
+                                    if getgenv().KillCount == current then
+                                        updateKillUI(getgenv().KillCount + 1)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+homeTab:CreateText({
+    name = "⚔️ Assist System",
+    text = "If you damage an enemy and a teammate finishes them off, you will still be awarded a kill credit!"
+})
+
+local scriptsTab = window:CreateTab({ Name = "Scripts", Icon = 0 })
+
+scriptsTab:CreateSection({ Name = "Universal" })
+
+scriptsTab:CreateButton({ Name = "Infinite Yield", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/edgeiy/infiniteyield/master/source"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Nameless Admin", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/ltseverydayyou/Nameless-Admin/main/Source.lua"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Dex Explorer", Callback = function() 
+    loadstring(game:HttpGet("https://github.com/AZYsGithub/DexPlusPlus/releases/latest/download/out.lua"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Remote Spy", Callback = function() 
+    loadstring(game:HttpGet("https://github.com/exxtremestuffs/SimpleSpySource/raw/master/SimpleSpy.lua"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Paranoia Admin", Callback = function() 
+    loadstring(game:HttpGet("https://idx.lol/latest.lua"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Admin Panel", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Admin-Panel-238222"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Novoline Admin", Callback = function() 
+    loadstring(game:HttpGet("https://novoline.pro"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Mafia Admin Panel", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/7RNUedb3"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Ak Admin", Callback = function() 
+    loadstring(game:HttpGet("https://absent.wtf/AKADMIN.lua"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Capy Admin Panel", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Capygg-UNIVERSAL-Admin-v3-238140"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Infinite Yield Reborn", Callback = function() 
+    loadstring(game:HttpGet(('https://raw.githubusercontent.com/mxsynry/infiniteyield-reborn/refs/heads/scriptblox/source' or 'https://mxsynry.github.io/storage/iyrbackup/legacy/scriptblox/source')))()
+end })
+
+scriptsTab:CreateButton({ Name = "Youtube Music Player", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-YouTube-Music-Player-V8-236600"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Pshade (Shaders)", Callback = function() 
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/randomstring0/pshade-ultimate/refs/heads/main/src/cd.lua'))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Shiftlock", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Universal-Shiftlock-No-Disappear-after-die-23318"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Fly", Callback = function() 
+    loadstring(game:HttpGet("https://pastefy.app/9bilwWLP/raw"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Fly 2", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Fly-script-v3-16742"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Telekinesis Fling", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/biR1ZZA9"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Telekinesis 2", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Telekinesis-You-can-only-lift-unanc*d-things-237340"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Telekinesis 3", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-telekinetic-66554"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Telekinesis 4", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/Qwerty/refs/heads/main/qwerty1.lua"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Telekinesis Gui 5", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/VVWcfs9t"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Netless", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Anti-hat-fall-82624"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Delta Keyboard", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Xxtan31/Ata/main/deltakeyboardcrack.txt", true))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Verity V1", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/pQjRMdiG"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Verity V2", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/rizz65667-svg/Ver/refs/heads/main/Verity_FIXED.TxT"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Welding Abuse", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/rangell8/Rexys-Welding-Hub/refs/heads/main/script"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Fast Fredbear", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/wbEc0ThZ"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Wither Storm", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/ian49972/SCRIPTS/refs/heads/main/Wither"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Control Npcs", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/qwertys/refs/heads/main/qwerty8.lua"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Fe Punch", Callback = function() 
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/shakk-code/fe-punch-script/refs/heads/main/script.lua', true))()
+end })
+
+scriptsTab:CreateButton({ Name = "Grab Npcs", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GUI-Offical/FileTest/refs/heads/main/Grab%20R6.txt", true))()
+end })
+
+scriptsTab:CreateButton({ Name = "Tp Tool", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/FSKUSqc2"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Universal Script Searcher", Callback = function() 
+    loadstring(game:HttpGet("http://scripthub.ultimatex.store"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Script Searcher", Callback = function() 
+    loadstring(game:HttpGet("https://pastefy.app/cIrUcSTO/raw"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Quizbot", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-11/quizbot/refs/heads/master/quizbot.luau"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Virtual Keyboard", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Jskfhggjxu/My-Script/refs/heads/main/VirtualKeyboard.lua"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Draw Chat Pro", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/ocfi/_/refs/heads/main/a"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Egor Script", Callback = function() 
+    loadstring(game:HttpGet("https://pastefy.app/5EeMRVyx/raw"))()
+end })
+
+scriptsTab:CreateButton({ Name = "OpFinality", Callback = function() 
+    loadstring(game:HttpGet("https://github.com/pwnmaster99/Scripts/raw/refs/heads/main/OPFinality%20Revived"))()
+end })
+
+scriptsTab:CreateButton({ Name = "1x1x1x1 Gui", Callback = function() 
+    loadstring(game:HttpGet('https://pastebin.com/raw/tfAgBeaa'))()
+end })
+
+scriptsTab:CreateButton({ Name = "Ai Chat Bot", Callback = function() 
+    loadstring(game:HttpGet("https://pastefy.app/6c5jXS3z/raw"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Talentless", Callback = function() 
+    loadstring(game:HttpGet("https://hellohellohell0.com/talentless-raw/TALENTLESS.lua", true))()
+end })
+
+scriptsTab:CreateButton({ Name = "Fps Booster", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/ashmehra852-lab/AshishAntiLag.Luaa/refs/heads/main/AshishAntialag.LUA"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Fps Booster 2", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/JoshzzAlteregooo/FpsBoosterV2/refs/heads/main/FpsBoosterV2/JoshzzPanelBooster"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Brainrot Police", Callback = function() 
+    loadstring(game:HttpGet("https://loadstring.net/scripts/brainrotpolice.lua"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Char Script", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/Bd9aaVmT"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Universal Script Creator", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Universal-Script-Creator/refs/heads/main/README.md"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Synapse X Executor", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/AZYsGithub/Chillz-s-scripts/main/Synapse-X-Remake.lua"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Inventory Esp", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Finilando/script/refs/heads/main/ESP%20INVENTORY"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Flashback Script", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/fARYvrb6"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Desync Script", Callback = function() 
+    loadstring(game:HttpGet("https://pastefy.app/MKQhZyAn/raw"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Ragdoll Script", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Rawbr10/Roblox-Scripts/refs/heads/main/0%20Graviy%20Trip%20Universal"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Phonk Script", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/9s2dyhcgwm-svg/Troll-phonk-meme/refs/heads/main/The%20Script"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Wikipedia Script", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/4UMAeFvE"))()  
+end })
+
+scriptsTab:CreateButton({ Name = "Aimbot", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/parasopsays/Jam/refs/heads/main/beef"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Fe Scripts Collection", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/sypcerr/FECollection/refs/heads/main/script.lua",true))()
+end })
+
+scriptsTab:CreateButton({ Name = "MikeMercu F3x Gui", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-MikeMercu-f3x-gui-228774"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Coolkid Gui V1", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/cfsmi2/c00lguiv1/refs/heads/main/Main.lua"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Coolkid Gui V2", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-c00lgui-134417"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Coolkid Gui V2.5", Callback = function() 
+    loadstring(game:HttpGet("https://gist.githubusercontent.com/wateringcancan-eng/209697b404ddee53bac61f2dca1237fc/raw/7458e1e9dfbc277a0fe508663b4e33972e93bb1e/C00lcl4n_2_0.lua"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Coolkid Gui V3", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/MiRw3b/c00lgui-v3rx/main/c00lguiv3rx.lua"))() 
+end })
+
+scriptsTab:CreateButton({ Name = "Coolkid Gui V4", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Natural-Disaster-Survival-c00lkidds-op-trolling-gui-of-nds-30335"))()
+end })
+
+scriptsTab:CreateButton({ Name = "G00by665len Gui", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-g00by665len-gui-f3x-New-update-228268"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Project L3ck3d Gui", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-S3cr3t-gui-Open-source-224279"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Sheldoni Gui", Callback = function() 
+    loadstring(game:HttpGet("https://pastefy.app/GGPsqaRU/raw"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Coolkid Executor", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GOJO07775/C00lkiddK1ng-GUI/bb47ccdd3540216eae52b96569bf17671f0ea41d/C00lkiddK1ng%20GUI", true))()
+end })
+
+scriptsTab:CreateButton({ Name = "Lalol Backdoor Executor", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/its-LALOL/LALOL-Hub/main/Backdoor-Scanner/script"))()
+end })
+
+scriptsTab:CreateButton({ Name = "Syntax Backdoor Executor", Callback = function() 
+    loadstring(game:HttpGet('https://bitbucket.org/projects_early26/new/raw/0cd464afb03269ef1134a30fc8c407162e88dcac/v1.2.5.lua'))()
+end })
+
+scriptsTab:CreateButton({ Name = "Server Finder", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/MaxproGlitcher/Server_Finder_Deluxe_Back_Up/refs/heads/main/.luau"))()
+end })
+
+local requireTab = window:CreateTab({ Name = "Require Scripts", Icon = 0 })
+
+requireTab:CreateSection({ Name = "Scripts" })
+
+requireTab:CreateText({
+    name = "⚠️ Read This First",
+    text = "This copies the require script to your clipboard—it does not execute it automatically!\n\nNote: Some scripts may not function on mobile devices."
+})
+
+requireTab:CreateText({
+    name = "⚙️ [ NOTICE ] ⚙️",
+    text = "» If a Require Script is broken or patched...\n» Comment on my posts or report it in the Discord!",
+})
+
+requireTab:CreateText({
+    name = "ℹ️ How to Use This Tab",
+    text = "These are Server-Side scripts! Clicking a button copies the code to your clipboard so you can paste it into your Server-Side/Backdoor executor or Command Bar."
+})
+
+requireTab:CreateButton({ Name = "Happy Hub", Callback = function() 
+    setclipboard('require(104239303577263):Hload("Your-username")') 
+end })
+
+requireTab:CreateButton({ Name = "Polaria", Callback = function() 
+    setclipboard('require(120447114144535):Pload("your name")') 
+end })
+
+requireTab:CreateButton({ Name = "Tubers93 Gui", Callback = function() 
+    setclipboard('require(0x562685ffbc7b).V1("username")') 
+end })
+
+requireTab:CreateButton({ Name = "Roaring Knight", Callback = function() 
+    setclipboard('require(71205239813237).Load("user")') 
+end })
+
+requireTab:CreateButton({ Name = "Shin Sonic", Callback = function() 
+    setclipboard('require(77055143496081).MorphMonster("username", "shin sonic")') 
+end })
+
+requireTab:CreateButton({ Name = "Organator", Callback = function() 
+    setclipboard('require(119819780800418).MorphMonster("username", "organator")') 
+end })
+
+requireTab:CreateButton({ Name = "Guilt", Callback = function() 
+    setclipboard('require(75834950186546).MorphMonster("username", "guilt")') 
+end })
+
+requireTab:CreateButton({ Name = "Minos Prime", Callback = function() 
+    setclipboard('require(0x3603754d7)("User", "minos2")') 
+end })
+
+requireTab:CreateButton({ Name = "Mimic", Callback = function() 
+    setclipboard('require(77842202241216).load("username")') 
+end })
+
+requireTab:CreateButton({ Name = "Sirenhead", Callback = function() 
+    setclipboard('require(75834950186546).MorphMonster("username", "sirenhead2")') 
+end })
+
+requireTab:CreateButton({ Name = "Bone Rabbit", Callback = function() 
+    setclipboard('require(87513953915554).MorphMonster("user", "bontherabbit")') 
+end })
+
+requireTab:CreateButton({ Name = "Hand", Callback = function() 
+    setclipboard('require(5375399205).Player("your name")') 
+end })
+
+requireTab:CreateButton({ Name = "John Doe", Callback = function() 
+    setclipboard("require(80147538511861).john('yourname')") 
+end })
+
+requireTab:CreateButton({ Name = "Steve", Callback = function() 
+    setclipboard('require(15581949972).mc("yourusername")') 
+end })
+
+requireTab:CreateButton({ Name = "Sea Monkey", Callback = function() 
+    setclipboard('require(94673163261524)("user")') 
+end })
+
+requireTab:CreateButton({ Name = "Prototype", Callback = function() 
+    setclipboard('require(73755486018996).MorphMonster("name", "Prototype")') 
+end })
+
+requireTab:CreateButton({ Name = "Catnap", Callback = function() 
+    setclipboard('require(92610899059557).MorphMonster("name", "catnap" )') 
+end })
+
+requireTab:CreateButton({ Name = "Huggy Wuggy", Callback = function() 
+    setclipboard('require(138108464845575).MorphMonster("robloxnamehere", "huggy wuggy" )') 
+end })
+
+requireTab:CreateButton({ Name = "Spider Queen", Callback = function() 
+    setclipboard('require(81801397159119).MorphMonster("Username", "spider queen")') 
+end })
+
+requireTab:CreateButton({ Name = "Epstein.exe", Callback = function() 
+    setclipboard('require(134034440311399):load("Username")') 
+end })
+
+requireTab:CreateButton({ Name = "Country Road Creature", Callback = function() 
+    setclipboard('require(75834950186546).MorphMonster("Username", "country road creature")') 
+end })
+
+requireTab:CreateButton({ Name = "Dark Siren Head", Callback = function() 
+    setclipboard('require(75834950186546).MorphMonster("Username", "dark siren head")') 
+end })
+
+requireTab:CreateButton({ Name = "Small Shin", Callback = function() 
+    setclipboard('require(77055143496081).MorphMonster("User","small shin")') 
+end })
+
+requireTab:CreateButton({ Name = "American Demo", Callback = function() 
+    setclipboard('require(111697793579923).americandemo("user")') 
+end })
+
+requireTab:CreateButton({ Name = "Pumpkin Rabbit", Callback = function() 
+    setclipboard('require(87513953915554).MorphMonster("yourrobloxnamehere", "pumpkinrabbit")') 
+end })
+
+requireTab:CreateButton({ Name = "Sonic Eyx", Callback = function() 
+    setclipboard('require(77055143496081).MorphMonster("yourname", "sonic.eyx")') 
+end })
+
+requireTab:CreateButton({ Name = "Death Angel", Callback = function() 
+    setclipboard('require(88521859208314).MorphMonster("question0mark_man", "death angel")') 
+end })
+
+requireTab:CreateButton({ Name = "Demogorgon", Callback = function() 
+    setclipboard('require(90079465185110).load("question0mark_man")') 
+end })
+
+requireTab:CreateButton({ Name = "Blue Dud Forsaken", Callback = function() 
+    setclipboard('require(74432860446268).bluudude("question0mark_man")') 
+end })
+
+requireTab:CreateButton({ Name = "VIP Jason", Callback = function() 
+    setclipboard('require(93565035610376).jason("yourname")') 
+end })
+
+requireTab:CreateButton({ Name = "Sukuna", Callback = function() 
+    setclipboard('require(89529616632600)("question0mark_man", "Sukuna")') 
+end })
+
+requireTab:CreateButton({ Name = "Long Boy Bonsai", Callback = function() 
+    setclipboard('require(92273074640861).morph("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "Fred Bear", Callback = function() 
+    setclipboard('require(77592635370325).fredballs("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "Cartoon Mouse", Callback = function() 
+    setclipboard('require(75834950186545+1).MorphMonster("YourNameHere","cartoon mouse")') 
+end })
+
+requireTab:CreateButton({ Name = "Flowers", Callback = function() 
+    setclipboard('require(100964016832477).load("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "Doey", Callback = function() 
+    setclipboard('require(128923392499915).MorphMonster("YourNameHere", "D")') 
+end })
+
+requireTab:CreateButton({ Name = "King Shark", Callback = function() 
+    setclipboard('require(81885009203008):Init("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "Granny", Callback = function() 
+    setclipboard('require(107774008948464)("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "The Doctor", Callback = function() 
+    setclipboard('require(95059681285913).morph("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "Headcrab", Callback = function() 
+    setclipboard('require(89235764665856).MorphMonster("YourNameHere","headcrab zombie")') 
+end })
+
+requireTab:CreateButton({ Name = "Slower", Callback = function() 
+    setclipboard('require(89235764665856).MorphMonster("YourNameHere","slower")') 
+end })
+
+requireTab:CreateButton({ Name = "Street Horse", Callback = function() 
+    setclipboard('require(89235764665856).MorphMonster("YourNameHere","street horse")') 
+end })
+
+requireTab:CreateButton({ Name = "Prototype", Callback = function() 
+    setclipboard('require(89235764665856).MorphMonster("YourNameHere","Prototype")') 
+end })
+
+requireTab:CreateButton({ Name = "Laalaa", Callback = function() 
+    setclipboard('require(134070347294286)("YourNameHere","laalaa")') 
+end })
+
+requireTab:CreateButton({ Name = "Tinky Tank", Callback = function() 
+    setclipboard('require(99929048999738).MorphMonster("YourNameHere","tinkytank")') 
+end })
+
+requireTab:CreateButton({ Name = "Skin Stealer", Callback = function() 
+    setclipboard('require(100515526790459).load("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "Bon", Callback = function() 
+    setclipboard('require(138603654744588).Morph("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "Muto Prime", Callback = function() 
+    setclipboard('require(99673922560095).load("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "Tinky Winky", Callback = function() 
+    setclipboard('require(104636295173472).load("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "Antenna Costume", Callback = function() 
+    setclipboard('require(92083319536644).MorphMonster("YourNameHere","costume man")') 
+end })
+
+requireTab:CreateButton({ Name = "Starfish", Callback = function() 
+    setclipboard('require(81591344625970).load("YourNameHere")') 
+end })
+
+requireTab:CreateButton({ Name = "Scp682", Callback = function() 
+    setclipboard('require(74340420271295).MorphMonster("YourNameHere","scp682")') 
+end })
+
+requireTab:CreateButton({ Name = "Jaguar", Callback = function() 
+    setclipboard('require(74340420271295).MorphMonster("YourNameHere","jaguar")') 
+end })
+
+requireTab:CreateButton({ Name = "Subway Guard", Callback = function() 
+    setclipboard('require(93943988217861)("YourNameHere","Guard")') 
+end })
+
+requireTab:CreateButton({ Name = "Horror Mutant", Callback = function() 
+    setclipboard('require(99929048999738).MorphMonster("YourNameHere","horror")') 
+end })
+
+local hubsTab = window:CreateTab({ Name = "Hubs", Icon = 0 })
+
+hubsTab:CreateSection({ Name = "Universal" })
+
+hubsTab:CreateButton({ Name = "Xvc Hub", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-XVC-Hub-202396"))() 
+end })
+
+hubsTab:CreateButton({ Name = "Dfxclan Hub", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/HK1Xpajw"))() 
+end })
+
+hubsTab:CreateButton({ Name = "DfxClan 1.5 Hub", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/yxz3gVRq"))()
+end })
+
+hubsTab:CreateButton({ Name = "Degent Hub", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/cr20JxP9"))() 
+end })
+
+hubsTab:CreateButton({ Name = "Zvc Hub (Old)", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Zvc-Hub/refs/heads/main/README.md"))() 
+end })
+
+hubsTab:CreateButton({ Name = "Galactic Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GalacticScripts/Galactic-Hub/refs/heads/main/WindUI"))() 
+end })
+
+hubsTab:CreateButton({ Name = "Yunus Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/yunus154524/YunusLo1545-HUB/refs/heads/main/YunusLo1545%20HUB"))() 
+end })
+
+hubsTab:CreateButton({ Name = "Opiam Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/HydraRBXM/opiamhub/refs/heads/main/OpiamMain"))() 
+end })
+
+hubsTab:CreateButton({ Name = "Altair Hub", Callback = function() 
+    loadstring(game:HttpGet("https://pastefy.app/hiwjpLFi/raw"))() 
+end })
+
+hubsTab:CreateButton({ Name = "Jarvis Hub", Callback = function() 
+  loadstring(game:HttpGet("https://raw.githubusercontent.com/HeyGyt/jarvisv1/refs/heads/main/jarvis"))()
+end })
+
+hubsTab:CreateButton({ Name = "An Hub", Callback = function() 
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/GUI-Offical/FileTest/refs/heads/main/ANHUBB.lua'))()
+end })
+
+hubsTab:CreateButton({ Name = "Bacon Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/BaconHub1/Autoupdate/refs/heads/main/Cuz%20yes"))()
+end })
+
+hubsTab:CreateButton({ Name = "Speed Hub X", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua", true))()
+end })
+
+hubsTab:CreateButton({ Name = "Nyx Mods Hub", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-NyxMods-Universal-245609"))()
+end })
+
+hubsTab:CreateButton({ Name = "Ghost Hub", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Ghost-hub-keyless-65732"))()
+end })
+
+hubsTab:CreateButton({ Name = "Rob Hub", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/KSvbtcPE"))()
+end })
+
+hubsTab:CreateButton({ Name = "Solara Hub", Callback = function() 
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/samuraa1/Solara-Hub/refs/heads/main/SH.lua'))()
+end })
+
+hubsTab:CreateButton({ Name = "Aesthetic Hub", Callback = function() 
+    loadstring(game:HttpGet("https://gist.githubusercontent.com/Darknife339/b6b0d348c59ac034c8eb7f6210dd4029/raw/9c875ab4f5fdfccc4ef318912d9a02a4f08dd7ef/file.lua"))()
+end })
+
+hubsTab:CreateButton({ Name = "Tiger X Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/balintTheDevX/Tiger-X-V3/main/Tiger%20X%20V3.5%20Fixed"))()
+end })
+
+local trollingTab = window:CreateTab({ Name = "Trolling", Icon = 0 })
+
+trollingTab:CreateSection({ Name = "Trolling" })
+
+trollingTab:CreateButton({ Name = "Trolling Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/yofriendfromschool1/Sky-Hub/main/FE%20Trolling%20GUI.luau"))()
+end })
+
+trollingTab:CreateButton({ Name = "Dropkick Fling", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/platinww/CrustyMain/refs/heads/main/universal/DropKick.lua"))() 
+end })
+
+trollingTab:CreateButton({ Name = "Fling Gui 1", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/sypcerr/scripts/refs/heads/main/UFGUI", true))() 
+end })
+
+trollingTab:CreateButton({ Name = "Fling Gui 2", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GoldenCheats/natural-disaster-script/refs/heads/main/NATURAL%20DISASTER%20FLING%20V2"))()
+end })
+
+trollingTab:CreateButton({ Name = "Spy Script", Callback = function() 
+    loadstring(game:HttpGet("https://gist.githubusercontent.com/DEVADMINENGINE/9bb547b158bc241a29a14bd43139a7aa/raw/7d7aff0bc1ff69be2b7e8bca848dfbb843399c91/dev%2520spyer"))()
+end })
+
+local Animationstab = window:CreateTab({ name = "Animations", icon = 0 })
+
+Animationstab:CreateSection({ Name = "R15" })
+
+Animationstab:CreateButton({ Name = "R15 Emotes", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Bac0nHck/Scripts/refs/heads/main/BundleAnimations.lua"))()
+end })
+
+Animationstab:CreateButton({ Name = "Sonic R15", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Azizanzz0/FE-R15-Sonic-X-Super/refs/heads/main/Protected%20SonicXSuper.txt"))()
+end })
+
+Animationstab:CreateButton({ Name = "Drone R15", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/qwertys/refs/heads/main/qwerty16.lua"))()
+end })
+
+Animationstab:CreateButton({ Name = "Ink Monster R15", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/qwertys/refs/heads/main/qwerty14.lua"))()
+end })
+
+Animationstab:CreateButton({ Name = "R15 Mini Car", Callback = function() 
+    loadstring(game:HttpGet("https://pastefy.app/UqDEIOpO/raw"))()
+end })
+
+Animationstab:CreateButton({ Name = "R15 Katana", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/qwertys/refs/heads/main/qwerty12.lua"))()
+end })
+
+Animationstab:CreateButton({ Name = "R15 Animation", Callback = function() 
+    loadstring(game:HttpGet("https://kbauu.neocities.org/animation-hub"))()  
+end })
+
+Animationstab:CreateButton({ Name = "Scary Animation", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Scary-Anim/refs/heads/main/README.md"))()
+end })
+
+Animationstab:CreateButton({ Name = "Invincible Fly", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Invincible-Fly/refs/heads/main/README.md"))()
+end })
+
+Animationstab:CreateButton({ Name = "Shadow The Hedgehog", Callback = function() 
+    loadstring(game:HttpGet("https://pastefy.app/0QSkiaHL/raw"))()
+end })
+
+Animationstab:CreateButton({ Name = "Gun Script", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/pYMbRb7w"))()
+end })
+
+Animationstab:CreateButton({ Name = "R15 Sonic Exe", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-FE-R15-Sonic-exe-63788"))()
+end })
+
+Animationstab:CreateSection({ Name = "R6" })
+
+Animationstab:CreateButton({ Name = "R6 Animation", Callback = function() 
+    loadstring(game:HttpGet("https://pastefy.app/UC2OHMhe/raw"))() 
+end })
+
+Animationstab:CreateButton({ Name = "Slasher Anim", Callback = function() 
+    loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-FE-Slasher-Delta-R6-201469"))()
+end })
+
+Animationstab:CreateButton({ Name = "R6 Sonic Exe", Callback = function() 
+    loadstring(game:HttpGet("https://pastebin.com/raw/chqPBh9F"))()
+end })
+
+Animationstab:CreateSection({ Name = "Hats Or Reanimation" })
+
+Animationstab:CreateButton({ Name = "Uhhh Reanimate", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/STEVE-916-create/Uhhhhhh/main/source/reanim.lua"))()
+end })
+
+Animationstab:CreateButton({ Name = "Patchma Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/Qwerty/refs/heads/main/qwerty25.lua"))()
+end })
+
+Animationstab:CreateButton({ Name = "Patchma Hub V61", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Patchma-Hub-v61/refs/heads/main/CreditsToPatchmaHubOwners"))()
+end })
+
+Animationstab:CreateButton({ Name = "Noli", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/qwertys/refs/heads/main/qwerty0.lua"))()
+end })
+
+Animationstab:CreateButton({ Name = "Coolkid", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/randomstring0/qwertys/refs/heads/main/qwerty2.lua"))()
+end })
+
+Animationstab:CreateButton({ Name = "Lighting Cannon", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Lightning%20Cannon"))()
+end })
+
+Animationstab:CreateButton({ Name = "Goner", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Goner"))()
+end })
+
+Animationstab:CreateButton({ Name = "Sin Dragon", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Sin%20Dragon"))()
+end })
+
+Animationstab:CreateButton({ Name = "Neptunian", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Neptunian%20V"))()
+end })
+
+Animationstab:CreateButton({ Name = "Krystal Dance", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Krystal%20Dance"))()
+end })
+
+Animationstab:CreateButton({ Name = "Motorcycle", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Motorcycle"))()
+end })
+
+Animationstab:CreateButton({ Name = "Gale Fighter", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Gale%20Fighter"))()
+end })
+
+Animationstab:CreateButton({ Name = "Ban Hammer", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Ban%20Hammer"))()
+end })
+
+Animationstab:CreateButton({ Name = "Puppet Master", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Puppet%20Master"))()
+end })
+
+Animationstab:CreateButton({ Name = "Minigun", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Minigun"))()
+end })
+
+Animationstab:CreateButton({ Name = "Sniper", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Sniper"))()
+end })
+
+Animationstab:CreateButton({ Name = "Studio Dummy", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Studio%20Dummy"))()
+end })
+
+Animationstab:CreateButton({ Name = "Ak47", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/AK-47"))()
+end })
+
+Animationstab:CreateButton({ Name = "Sadist Genocider", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Sadist%20Genocider"))()
+end })
+
+Animationstab:CreateButton({ Name = "DearSister", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Dearsister"))()
+end })
+
+Animationstab:CreateButton({ Name = "Good Cop Bad Cop", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GenesisFE/Genesis/refs/heads/main/Loadstrings/Good%20Cop%20Bad%20Cop"))()
+end })
+
+Animationstab:CreateButton({ Name = "Hacklord", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Hacklord-Script-24-hours-fe-/refs/heads/main/README.md"))()
+end })
+
+Animationstab:CreateButton({ Name = "Brimstone", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Brimstone-Witch/refs/heads/main/README.md"))()
+end })
+
+Animationstab:CreateButton({ Name = "Dual Solaris V2", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/BloxinStud10/24-Hours/refs/heads/main/Obfuscations/DualSolarisV2.luau"))()
+end })
+
+Animationstab:CreateButton({ Name = "Star Glitcher V1", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/BloxinStud10/24-Hours/refs/heads/main/Obfuscations/StarGlitcherV1.luau"))()
+end })
+
+Animationstab:CreateText({
+    name = "Genesis Hats",
+    text = "Go To Their Discord To Know Which Hat To Use https://discord.com/invite/aEZpBEHgMT (Only Applies To Genesis Scripts)",
+})
+
+Animationstab:CreateText({
+    name = "24 Hours Discord",
+    text = "Go To Their Discord To Know Which Hat To Use https://discord.gg/bjTxKxjJVc (Only Applies To 24 Hour Fe Scripts)",
+})
+
+local gamesTab = window:CreateTab({ Name = "Games", icon = 0 })
+
+gamesTab:CreateSection({ name = "Scripts", icon = 93364949241311 })
+
+gamesTab:CreateButton({ Name = "Your Natural Disaster Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Your-Natural-Disaster-Hub/refs/heads/main/README.md"))()
+end })
+
+gamesTab:CreateButton({ Name = "Your 99 Nights Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Your-99-Nights-Hub/refs/heads/main/README.md"))()
+end })
+
+gamesTab:CreateButton({ Name = "Your Prison Life Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Your-Prison-Life-Hub/refs/heads/main/README.md"))()
+end })
+
+gamesTab:CreateButton({ Name = "Your Murder Mystery Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Your-Murder-Mystery-Hub/refs/heads/main/README.md"))()
+end })
+
+gamesTab:CreateButton({ Name = "Your Funky Friday Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Your-Funky-Friday-Script/refs/heads/main/README.md"))()
+end })
+
+gamesTab:CreateButton({ Name = "Your Doors Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Your-Doors-Hub/refs/heads/main/README.md"))()
+end })
+
+gamesTab:CreateButton({ Name = "Your Keyboard Escape Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Your-Keyboard-Escape-Hub/refs/heads/main/README.md"))()
+end })
+
+gamesTab:CreateButton({ Name = "Your Blade Ball Hub", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Aviaxen/Your-Bladeball-Hub/refs/heads/main/README.md"))()
+end })
+
+local CreTab = window:CreateTab({ Name = "Credits", Icon = 0 })
+
+CreTab:CreateSection({ Name = "Credits" })
+
+CreTab:CreateText({
+    name = "📜 Credits",
+    text = "Credits to all original script owners.\nFound officially only at Mzscripts.com and Scriptblox.com!"
+})
+
+CreTab:CreateText({
+    name = "User Profiles",
+    text = "Mzscripts [.gamerbear9] • Scriptblox [NullPointer]",
+})
+
+CreTab:CreateText({
+    name = "💬 Notice",
+    text = "If any scripts are patched, please comment on my posts.\nThis hub will always remain 100% keyless! :)"
+})
+
+CreTab:CreateText({
+    name = "📢 Announcement",
+    text = "The Wind UI version of this hub is now discontinued.\n\nHandling two versions at the same time has become too difficult. I hope you guys can understand!"
+})
+
+CreTab:CreateText({ 
+    name = "Change Logs", 
+    text = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⚡ MAJOR CHANGES:\n[+] Added a TON of brand new Require Scripts!\n[+] Created a dedicated 'Require Scripts' Tab!\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" 
+})
+
+window:Toast({ title = "Loaded", icon = 125823673784681 })
