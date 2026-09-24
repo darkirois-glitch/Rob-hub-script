@@ -1,0 +1,782 @@
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/gen2"))()
+
+local window = Rayfield:CreateWindow({
+    name = "The Chosen Hub",
+    subtitle = "By Inky",
+    sidebarLayout = true,
+    theme = "default",
+})
+
+local homeTab = window:CreateTab({ Name = "Home", Icon = 0 })
+
+homeTab:CreateSection({ Name = "Featured" })
+
+homeTab:CreateButton({ Name = "Infinite Yield", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/edgeiy/infiniteyield/master/source"))() 
+end })
+
+homeTab:CreateButton({ Name = "Nameless Admin", Callback = function() 
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/ltseverydayyou/Nameless-Admin/main/Source.lua"))() 
+end })
+
+homeTab:CreateButton({ Name = "Dex Explorer", Callback = function() 
+    loadstring(game:HttpGet("https://github.com/AZYsGithub/DexPlusPlus/releases/latest/download/out.lua"))() 
+end })
+
+homeTab:CreateButton({ Name = "Remote Spy", Callback = function() 
+    loadstring(game:HttpGet("https://github.com/exxtremestuffs/SimpleSpySource/raw/master/SimpleSpy.lua"))() 
+end })
+
+homeTab:CreateButton({
+    Name = "Copy Discord Link",
+    Callback = function()
+        setclipboard("https://discord.gg/wf7Ex6Kzf3")
+        
+        window:Toast({
+            Title = "Link Copied!",
+            Content = "Discord invite copied to clipboard. Go paste it in your browser!",
+            Icon = 125823673784681, 
+            Duration = 5
+        })
+    end,
+})
+
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+
+getgenv().EspEnabled = false
+getgenv().EspColor = Color3.fromRGB(96, 205, 255)
+getgenv().ESPData = getgenv().ESPData or {}
+
+local CoreGui = game:GetService("CoreGui")
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local function getGui(name)
+    local gui = CoreGui:FindFirstChild(name)
+
+    if gui then
+        return gui
+    end
+
+    gui = Instance.new("ScreenGui")
+    gui.Name = name
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local success = pcall(function()
+        gui.Parent = CoreGui
+    end)
+
+    if not success then
+        gui.Parent = PlayerGui
+    end
+
+    return gui
+end
+
+local EspGui = getGui("Rayfield2D_EspGui")
+local TracerGui = getGui("RayfieldTracers_Gui")
+
+local function getCamera()
+    return workspace.CurrentCamera
+end
+
+local function destroyVisuals(data)
+    if not data then
+        return
+    end
+
+    if data.RenderConnection then
+        data.RenderConnection:Disconnect()
+        data.RenderConnection = nil
+    end
+
+    if data.Highlight then
+        data.Highlight:Destroy()
+        data.Highlight = nil
+    end
+
+    if data.Billboard then
+        data.Billboard:Destroy()
+        data.Billboard = nil
+    end
+
+    if data.Box then
+        data.Box:Destroy()
+        data.Box = nil
+    end
+
+    if data.Tracer then
+        data.Tracer:Destroy()
+        data.Tracer = nil
+    end
+end
+
+local function cleanupPlayer(player)
+    local data = getgenv().ESPData[player]
+
+    if not data then
+        return
+    end
+
+    destroyVisuals(data)
+
+    if data.CharacterConnection then
+        data.CharacterConnection:Disconnect()
+        data.CharacterConnection = nil
+    end
+
+    getgenv().ESPData[player] = nil
+end
+
+local function getAvatarParts(character)
+    if not character then
+        return nil, nil
+    end
+
+    local root =
+        character:FindFirstChild("HumanoidRootPart")
+        or character.PrimaryPart
+
+    local head = character:FindFirstChild("Head")
+    
+    if not root or not root:IsA("BasePart") then
+        root = nil
+
+        for _, obj in ipairs(character:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Transparency < 1 then
+                root = obj
+                break
+            end
+        end
+    end
+    
+    if not head or not head:IsA("BasePart") then
+        head = root
+    end
+
+    return root, head
+end
+
+local function createESP(player, character)
+    if player == LocalPlayer then
+        return
+    end
+
+    if not getgenv().EspEnabled then
+        return
+    end
+
+    if not character or player.Character ~= character then
+        return
+    end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+    if not humanoid then
+        return
+    end
+
+    local rootPart, head = getAvatarParts(character)
+
+    if not rootPart or not head then
+        task.delay(0.5, function()
+            if getgenv().EspEnabled
+                and player.Character == character
+                and character:IsDescendantOf(workspace)
+            then
+                createESP(player, character)
+            end
+        end)
+
+        return
+    end
+
+    local data = getgenv().ESPData[player]
+
+    if not data then
+        data = {}
+        getgenv().ESPData[player] = data
+    end
+
+    destroyVisuals(data)
+
+    data.Character = character
+    data.RootPart = rootPart
+    data.Head = head
+    data.Humanoid = humanoid
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESPHighlight"
+    highlight.Adornee = character
+    highlight.FillColor = getgenv().EspColor
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Enabled = true
+    highlight.Parent = character
+
+    data.Highlight = highlight
+    
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESPInfo"
+    billboard.Adornee = head
+    billboard.Size = UDim2.fromOffset(200, 45)
+    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Enabled = true
+    billboard.Parent = character
+
+    data.Billboard = billboard
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextSize = 14
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.Parent = billboard
+
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Position = UDim2.fromOffset(0, 20)
+    distanceLabel.Size = UDim2.new(1, 0, 0, 18)
+    distanceLabel.Font = Enum.Font.SourceSansBold
+    distanceLabel.Text = "[0 studs]"
+    distanceLabel.TextColor3 = Color3.fromRGB(230, 230, 230)
+    distanceLabel.TextSize = 12
+    distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.Parent = billboard
+    
+    local box = Instance.new("Frame")
+    box.Name = player.Name .. "_ESPBox"
+    box.BackgroundTransparency = 1
+    box.BorderSizePixel = 0
+    box.Visible = false
+    box.Parent = EspGui
+
+    data.Box = box
+
+    local boxStroke = Instance.new("UIStroke")
+    boxStroke.Thickness = 1.5
+    boxStroke.Color = getgenv().EspColor
+    boxStroke.Parent = box
+    
+    local tracer = Instance.new("Frame")
+    tracer.Name = player.Name .. "_ESPTracer"
+    tracer.BackgroundTransparency = 1
+    tracer.BorderSizePixel = 0
+    tracer.Size = UDim2.fromScale(1, 1)
+    tracer.Visible = false
+    tracer.Parent = TracerGui
+
+    data.Tracer = tracer
+    
+    local tracerShadow = Instance.new("Frame")
+    tracerShadow.Name = "Shadow"
+    tracerShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    tracerShadow.BackgroundTransparency = 0.65
+    tracerShadow.BorderSizePixel = 0
+    tracerShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    tracerShadow.ZIndex = 1
+    tracerShadow.Parent = tracer
+    
+    local tracerLine = Instance.new("Frame")
+    tracerLine.Name = "Line"
+    tracerLine.BackgroundColor3 = getgenv().EspColor
+    tracerLine.BorderSizePixel = 0
+    tracerLine.AnchorPoint = Vector2.new(0.5, 0.5)
+    tracerLine.ZIndex = 2
+    tracerLine.Parent = tracer
+
+    data.RenderConnection = RunService.RenderStepped:Connect(function()
+        if not getgenv().EspEnabled then
+            highlight.Enabled = false
+            billboard.Enabled = false
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+
+        if player.Character ~= character
+            or not character:IsDescendantOf(workspace)
+            or humanoid.Health <= 0
+        then
+            highlight.Enabled = false
+            billboard.Enabled = false
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+        
+        local currentRoot, currentHead = getAvatarParts(character)
+
+        if currentRoot then
+            rootPart = currentRoot
+            data.RootPart = currentRoot
+        end
+
+        if currentHead then
+            head = currentHead
+            data.Head = currentHead
+
+            if billboard.Adornee ~= currentHead then
+                billboard.Adornee = currentHead
+            end
+        end
+
+        if not rootPart then
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+
+        local myCharacter = LocalPlayer.Character
+
+        if not myCharacter then
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+
+        local myRoot =
+            myCharacter:FindFirstChild("HumanoidRootPart")
+            or myCharacter.PrimaryPart
+
+        if not myRoot then
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+
+        local camera = getCamera()
+
+        if not camera then
+            return
+        end
+
+        local color = getgenv().EspColor
+
+        highlight.FillColor = color
+        boxStroke.Color = color
+        tracerLine.BackgroundColor3 = color
+        
+        local boundingCFrame, boundingSize =
+            character:GetBoundingBox()
+
+        local boundsCenter = boundingCFrame.Position
+
+        local distance =
+            (myRoot.Position - boundsCenter).Magnitude
+
+        distanceLabel.Text =
+            "[" .. math.floor(distance) .. " studs]"
+
+        highlight.Enabled = true
+        billboard.Enabled = true
+
+        if distance > 1000 then
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+        
+        local topWorld =
+            boundsCenter +
+            Vector3.new(0, boundingSize.Y / 2, 0)
+
+        local bottomWorld =
+            boundsCenter -
+            Vector3.new(0, boundingSize.Y / 2, 0)
+
+        local topScreen =
+            camera:WorldToViewportPoint(topWorld)
+
+        local bottomScreen =
+            camera:WorldToViewportPoint(bottomWorld)
+
+        if topScreen.Z <= 0 or bottomScreen.Z <= 0 then
+            box.Visible = false
+            tracer.Visible = false
+            return
+        end
+
+        local height =
+            math.abs(bottomScreen.Y - topScreen.Y)
+
+        local width =
+            math.max(height * 0.55, 2)
+
+        if height < 2 then
+            box.Visible = false
+        else
+            box.Size =
+                UDim2.fromOffset(width, height)
+
+            box.Position =
+                UDim2.fromOffset(
+                    bottomScreen.X - width / 2,
+                    topScreen.Y
+                )
+
+            box.Visible = true
+        end
+         
+        local feetScreen, feetVisible =
+            camera:WorldToViewportPoint(bottomWorld)
+
+        if not feetVisible or feetScreen.Z <= 0 then
+            tracer.Visible = false
+            return
+        end
+
+        local startX =
+            camera.ViewportSize.X / 2
+
+        local startY =
+            camera.ViewportSize.Y
+
+        local endX = feetScreen.X
+        local endY = feetScreen.Y
+
+        local dx = endX - startX
+        local dy = endY - startY
+
+        local lineLength =
+            math.sqrt(dx * dx + dy * dy)
+
+        if lineLength <= 1 then
+            tracer.Visible = false
+            return
+        end
+
+        local angle =
+            math.deg(math.atan2(dy, dx))
+
+        local centerX =
+            (startX + endX) / 2
+
+        local centerY =
+            (startY + endY) / 2
+        
+        tracerLine.Size =
+            UDim2.fromOffset(lineLength, 2)
+
+        tracerLine.Position =
+            UDim2.fromOffset(centerX, centerY)
+
+        tracerLine.Rotation = angle
+        
+        tracerShadow.Size =
+            UDim2.fromOffset(lineLength, 4)
+
+        tracerShadow.Position =
+            UDim2.fromOffset(centerX, centerY)
+
+        tracerShadow.Rotation = angle
+
+        tracer.Visible = true
+    end)
+end
+
+local function setupPlayer(player)
+    if player == LocalPlayer then
+        return
+    end
+
+    local data = getgenv().ESPData[player]
+
+    if not data then
+        data = {}
+        getgenv().ESPData[player] = data
+    end
+
+    if data.CharacterConnection then
+        data.CharacterConnection:Disconnect()
+        data.CharacterConnection = nil
+    end
+
+    data.CharacterConnection =
+        player.CharacterAdded:Connect(function(character)
+            
+            local deadline = os.clock() + 5
+
+            repeat
+                task.wait(0.1)
+
+                if not getgenv().EspEnabled
+                    or player.Character ~= character
+                then
+                    return
+                end
+
+                if character:FindFirstChildOfClass("Humanoid")
+                    and character:FindFirstChildWhichIsA("BasePart", true)
+                then
+                    break
+                end
+
+            until os.clock() >= deadline
+
+            if getgenv().EspEnabled
+                and player.Character == character
+            then
+                createESP(player, character)
+            end
+        end)
+
+    if player.Character then
+        task.spawn(function()
+            local character = player.Character
+            local deadline = os.clock() + 5
+
+            repeat
+                task.wait(0.1)
+
+                if not getgenv().EspEnabled
+                    or player.Character ~= character
+                then
+                    return
+                end
+
+                if character:FindFirstChildOfClass("Humanoid")
+                    and character:FindFirstChildWhichIsA("BasePart", true)
+                then
+                    break
+                end
+
+            until os.clock() >= deadline
+
+            if getgenv().EspEnabled
+                and player.Character == character
+            then
+                createESP(player, character)
+            end
+        end)
+    end
+end
+
+getgenv().EnableESP = function()
+    getgenv().EspEnabled = true
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            setupPlayer(player)
+        end
+    end
+end
+
+getgenv().DisableESP = function()
+    getgenv().EspEnabled = false
+
+    for player in pairs(getgenv().ESPData) do
+        cleanupPlayer(player)
+    end
+end
+
+getgenv().RefreshESP = function()
+    if not getgenv().EspEnabled then
+        return
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local data = getgenv().ESPData[player]
+
+            if not data then
+                setupPlayer(player)
+
+            elseif data.Character ~= player.Character
+                and player.Character
+            then
+                createESP(player, player.Character)
+            end
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    if getgenv().EspEnabled then
+        setupPlayer(player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    cleanupPlayer(player)
+end)
+
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+
+    if getgenv().EspEnabled then
+        getgenv().RefreshESP()
+    end
+end)
+
+local espToggle = homeTab:CreateToggle({
+    name = "Player ESP",
+    flag = "PlayerESP",
+    value = false,
+    callback = function(value)
+        if value then
+            getgenv().EnableESP()
+        else
+            getgenv().DisableESP()
+        end
+    end,
+})
+
+homeTab:CreateColorPicker({
+    name = "Highlight Color",
+    color = getgenv().EspColor,
+    callback = function(color, alpha)
+        getgenv().EspColor = color
+    end,
+})
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+getgenv().ChamsEnabled = false
+
+local ChamsTargets = {}
+local ChamsConnections = {}
+
+local function removeChams(player)
+    local data = ChamsTargets[player.Name]
+
+    if data and data.Highlight then
+        data.Highlight:Destroy()
+    end
+
+    ChamsTargets[player.Name] = nil
+
+    if ChamsConnections[player.Name] then
+        ChamsConnections[player.Name]:Disconnect()
+        ChamsConnections[player.Name] = nil
+    end
+end
+
+local function applyChams(player, character)
+    if player == LocalPlayer then return end
+    if not character then return end
+    if not getgenv().ChamsEnabled then return end
+    
+    local oldData = ChamsTargets[player.Name]
+    if oldData and oldData.Highlight then
+        oldData.Highlight:Destroy()
+    end
+
+    ChamsTargets[player.Name] = nil
+    
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
+
+    local rootPart = character:WaitForChild("HumanoidRootPart", 5)
+        or humanoid.RootPart
+        or character:FindFirstChildWhichIsA("BasePart")
+
+    if not rootPart then return end
+    
+    if not character:IsDescendantOf(workspace) then
+        return
+    end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "SoloChamsHighlight"
+    highlight.FillColor = getgenv().EspColor or Color3.fromRGB(96, 205, 255) -- Uses picker color, falls back to blue
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = character
+    highlight.Parent = character
+    highlight.Enabled = false
+
+    ChamsTargets[player.Name] = {
+        Player = player,
+        Character = character,
+        Highlight = highlight,
+        Root = rootPart,
+        Distance = 99999
+    }
+    
+    humanoid.Died:Connect(function()
+        if ChamsTargets[player.Name]
+            and ChamsTargets[player.Name].Character == character then
+
+            ChamsTargets[player.Name] = nil
+
+            if highlight then
+                highlight:Destroy()
+            end
+        end
+    end)
+end
+
+local function addChams(player)
+    if player == LocalPlayer then return end
+    
+    if ChamsConnections[player.Name] then
+        ChamsConnections[player.Name]:Disconnect()
+        ChamsConnections[player.Name] = nil
+    end
+    
+    if player.Character then
+        task.spawn(function()
+            applyChams(player, player.Character)
+        end)
+    end
+    
+    ChamsConnections[player.Name] = player.CharacterAdded:Connect(function(character)
+        if not getgenv().ChamsEnabled then return end
+        
+        task.wait(0.2)
+
+        if getgenv().ChamsEnabled then
+            applyChams(player, character)
+        end
+    end)
+end
+
+local function refreshAllChams()
+    if not getgenv().ChamsEnabled then return end
+    
+    for _, data in pairs(ChamsTargets) do
+        if data.Highlight then
+            data.Highlight:Destroy()
+        end
+    end
+
+    ChamsTargets = {}
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            addChams(player)
+        end
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if getgenv().ChamsEnabled and LocalPlayer.Character then
+            local myRoot =
+                LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                or LocalPlayer.Character:FindFirstChildWhichIsA("BasePart")
+
+            if myRoot then
+                local list = {}
+
+                for name, data in pairs(ChamsTargets) do
+                    if data.Root
+                        and data.Highlight
+                        and data.Root:IsDescendantOf(workspace)
+                        a
