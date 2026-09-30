@@ -1,0 +1,646 @@
+plr = game.Players.LocalPlayer
+char = plr.Character
+hrp = char.HumanoidRootPart
+hum = char.Humanoid
+cam = workspace.CurrentCamera
+
+ts = game.TweenService
+rs = game.RunService
+
+if hum.RigType ~= Enum.HumanoidRigType.R6 then
+    local msg = Instance.new("Message", workspace)
+    msg.Text = "You're not R6! Please join a game which is R6 in order for the script to work."
+    game.Debris:AddItem(msg, 7.5)
+    return
+end
+
+ToolEnabled = true
+
+local msg = Instance.new("Message", workspace)
+msg.Text = "Loading..."
+
+Https = {
+    ["Theme.wav"] = "https://github.com/InnocentViru/Universal-demise/raw/refs/heads/main/Midnight%20Horrors%20-%20Black%20Knife%20Mix%20-%20CaptainSpinxs%20(youtube).mp3",
+    ["NPCKill.wav"] = "https://github.com/InnocentViru/Universal-demise/raw/refs/heads/main/Thorn%20Ring%20(ominous_stab_harsh.ogg)%20-%20DELTARUNE%20Chapters%203+4%20OST%20-%20Aventuras%20Demais%20(youtube).mp3",
+    ["Extend.wav"] = "https://github.com/InnocentViru/Universal-demise/raw/refs/heads/main/Cadence_Spawn_Alarm.ogg.wav",
+    ["Appear.wav"] = "https://github.com/InnocentViru/Universal-demise/raw/refs/heads/main/knight_appears.ogg",
+    ["Roar.wav"] = "https://github.com/InnocentViru/Universal-demise/raw/refs/heads/main/roaring-knight-roar.mp3",   
+}
+
+function load(t)    
+    for name, http in next, t do
+        msg.Text = "Loading... " .. "(" .. name .. ")"
+        delfile(name)        
+        local s, l = pcall(function()
+            return game:HttpGet(http)
+        end)
+        if s and l then            
+            writefile(name, l)
+        end
+    end
+end
+
+local Ticks = {
+    ["Lv1.wav"] = "https://github.com/InnocentViru/Universal-demise/raw/refs/heads/main/Cad_lv1.wav",
+    ["Lv2.wav"] = "https://github.com/InnocentViru/Universal-demise/raw/refs/heads/main/Cad_lv2.wav",
+    ["Lv3.wav"] = "https://github.com/InnocentViru/Universal-demise/raw/refs/heads/main/Cad_lv3.wav",
+    ["Lv4.wav"] = "https://github.com/InnocentViru/Universal-demise/raw/refs/heads/main/Cad_lv4.wav",
+}
+
+load(Https)
+load(Ticks)
+
+function LoadAndReturnTicks()    
+    pcall(function() workspace["Demise is cadence real"]:Destroy() end)
+    local Folder = Instance.new("Folder", workspace)
+    Folder.Name = "Demise is cadence real"
+    for i = 1, 4 do
+        local name = "Lv" .. i .. ".wav"
+        local s = Instance.new("Sound", Folder)
+        s.SoundId = getcustomasset(name)
+        s.Volume = 5
+        s.Name = name
+        s.Looped = true
+    end
+    return Folder, Folder:GetChildren()
+end
+
+function DemiseC(timer, TheTime)
+    if not getgenv().CountID then getgenv().CountID = 0 end
+    getgenv().Timer = timer 
+    getgenv().CountID += 1
+    local id = getgenv().CountID
+    local F, Folder = LoadAndReturnTicks()
+    local current = nil
+ 
+    getgenv().TimeIsGoing = true
+    local shit = false
+    
+    spawn(function()
+        while getgenv().Timer and getgenv().Timer > 0 and task.wait(1)
+        and hum.Health > 0 and TheTime and TheTime.Parent do            
+            getgenv().Timer -= 1
+            local lv
+            if Timer <= 25 then
+                lv = 4
+            elseif Timer <= 50 then
+                lv = 3
+            elseif Timer <= 75 then
+                lv = 2
+            else
+                lv = 1
+           end
+           if lv ~= current then        
+                if current then
+                    Folder[current]:Stop()
+                end
+        
+                Folder[lv]:Play()
+                Folder[lv].Volume = 0
+                ts:Create(Folder[lv], TweenInfo.new(1), {["Volume"] = 5}):Play()
+                current = lv
+            end
+            shit = not shit             
+            TheTime.Rotation = shit and 10 or -10
+            ts:Create(TheTime, TweenInfo.new(.75), {["Rotation"] = 0}):Play()
+
+            local mins = math.floor(getgenv().Timer / 60)
+            local secs = getgenv().Timer % 60
+            TheTime.Text = string.format("%01d:%02d", mins, secs) or "Noneless."
+            
+        end  
+        if getgenv().Timer and getgenv().Timer <= 0 and hum.Health > 0 then
+            hum:TakeDamage(9e9)
+        end        
+
+        if getgenv().CountID == id then 
+            getgenv().TimeIsGoing = false
+            local t = workspace:FindFirstChild("DemiseTheme")
+            if t then
+                ts:Create(t, TweenInfo.new(1), {["Volume"] = 0}):Play()
+            end
+        end
+        pcall(function() gethui().DemiseGui:Destroy() end)
+        if F then
+            F:Destroy()
+        end                          
+    end)
+end
+
+if getgenv().SimulationCon then getgenv().SimulationCon:Disconnect() end
+getgenv().SimulationCon = rs.Heartbeat:Connect(function()
+    if hum and hum.Health > 0 then
+        sethiddenproperty(plr, "SimulationRadius", math.huge)
+        sethiddenproperty(plr, "MaximumSimulationRadius", math.huge)
+    else
+        getgenv().SimulationCon:Disconnect()
+    end
+end)
+
+function DemiseTheme()
+    pcall(function() workspace.DemiseTheme:Destroy() end)
+    Theme = Instance.new("Sound", workspace)
+    Theme.Name = "DemiseTheme"
+    Theme.Looped = true
+    Theme.SoundId = getcustomasset("Theme.wav")
+    Theme.Pitch = 1.1
+    Theme.Volume = 2.5
+    Theme:Play()    
+
+    pcall(function() getgenv().GayDie:Disconnect() end)
+    getgenv().GayDie = char.Torso.AncestryChanged:Connect(function() 
+        Theme:Destroy()        
+    end)
+end
+
+function Highlight()
+    pcall(function() char.DemiseH:Destroy() end)
+    local h = Instance.new("Highlight", char)
+    h.DepthMode = "Occluded"
+    h.Name = "DemiseH"
+    h.FillTransparency = 0
+    h.FillColor = Color3.new(0,0,0)
+end
+
+function Shadows()    
+    spawn(function()        
+        pcall(function() workspace.DemiseShadows:Destroy() end)
+        local Folder = Instance.new("Folder", workspace)
+        Folder.Name = "DemiseShadows"
+        while hum and hum.Health > 0 and Folder and Folder.Parent and task.wait(.1) do
+            for _,v in next, char:GetDescendants() do
+                if v:IsA("BasePart") then
+                    local new = v:Clone()
+                    new.Parent = Folder
+                    new.Anchored = true
+                    new.CanCollide = false
+                    new.CanTouch = false
+                    new.CanQuery = false                    
+                    new.CastShadow = false
+                    new.Material = "ForceField"
+                    new.Color = Color3.new(0,0,0)
+                    if new:IsA("MeshPart") then
+                        new.TextureID = ""
+                    end
+                    for _,k in next, new:GetChildren() do
+                        if not k:IsA("SpecialMesh") then
+                            k:Destroy()
+                        else
+                            k.VertexColor = Vector3.new(0,0,0)
+                        end
+                    end
+                    local offset = hrp.CFrame:ToObjectSpace(v.CFrame)
+                    local target = hrp.CFrame
+                    * CFrame.new(0, 0, 20)
+                    * offset
+                    ts:Create(new, TweenInfo.new(1, Enum.EasingStyle.Linear), {
+                        ["Transparency"] = 1,
+                        ["CFrame"] = target
+                     }):Play()
+                    game.Debris:AddItem(new, 1)
+                end
+            end
+        end
+        Folder:Destroy()
+    end)
+end
+
+function loadanim(id)
+    local anim = Instance.new("Animation")
+    anim.AnimationId = "rbxassetid://" .. id
+    local track = hum:LoadAnimation(anim)
+    return track
+end
+
+function playsound(id, volume, pitch)
+    local s = Instance.new("Sound", workspace)
+
+    if tonumber(id) then
+        s.SoundId = "rbxassetid://" .. id
+    else
+        s.SoundId = getcustomasset(id)
+    end
+
+    s.Volume = volume or 3
+    s.Pitch = pitch or 1
+    s.PlayOnRemove = true
+    s:Destroy()
+end
+
+function DemiseAnim()    
+    for i,v in next, hum:GetPlayingAnimationTracks() do
+         if v.Animation and v.Animation.AnimationId == "rbxassetid://1323180718" then
+             v:Stop()
+         end
+    end
+    local Anim = loadanim(1323180718)
+    Anim:Play()
+    Anim.TimePosition = .35
+    Anim:AdjustSpeed(0)
+end
+
+function Scythe()    
+    local arm = char["Right Arm"]
+    pcall(function() arm.TheScythe:Destroy() end)
+    local model = game:GetObjects("rbxassetid://74252112384347")[1]    
+    local handle 
+
+    for i,v in next, model:GetDescendants() do
+        if v:IsA("BasePart") then handle = v break end
+    end
+
+    model.Parent = arm
+    model.Name = "TheScythe"
+      
+    handle.CanCollide = false
+    handle.Size /= 2
+    
+    local weld = Instance.new("Weld", handle)
+    weld.Part0 = handle 
+    weld.Part1 = arm
+    weld.C0 = CFrame.new(1.5, -1, 0) * CFrame.Angles(math.rad(90),0,math.rad(-90))
+end
+
+function ExtendTime(add)
+    if getgenv().TimeIsGoing then
+        playsound("Extend.wav")
+        getgenv().Timer += add or 30
+    end
+end
+
+function KillNPC(pchar)
+    local phrp = pchar:FindFirstChild("HumanoidRootPart")
+    if not phrp then return end
+    local phum = pchar:FindFirstChild("Humanoid")
+    if not phum then return end
+
+    if phrp and phrp.ReceiveAge == 0 and phum.Health > 0 then
+        phum:TakeDamage(9e9)
+        phum.Health = -1
+        phum:ChangeState(Enum.HumanoidStateType.Dead)
+        playsound("NPCKill.wav")
+        ExtendTime(20)
+
+        for i = 1, math.random(3, 7) do
+            local p = Instance.new("Part", workspace)
+            p.Material = "Neon"
+            p.Color = Color3.new(1,0,0)
+            p.Size = Vector3.new(3,80,3)
+            p.Anchored = true
+            p.CanCollide = false
+            p.CFrame = phrp.CFrame * CFrame.Angles(
+                math.rad(math.random(-360, 360)),
+                math.rad(math.random(-360, 360)),
+                math.rad(math.random(-360, 360))
+            )
+            ts:Create(p, TweenInfo.new(2), {
+                ["Transparency"] = 2,
+                ["Size"] = Vector3.zero
+            }):Play()
+            game.Debris:AddItem(p, 2)
+        end
+    end
+end
+
+function Fling(pchar)    
+    local phrp = pchar:FindFirstChild("HumanoidRootPart")
+    if not phrp then return end
+    local phum = pchar:FindFirstChild("Humanoid")
+    if not phum then return end    
+
+    local start = tick()
+    repeat rs.Heartbeat:Wait()
+        sethiddenproperty(hrp, "PhysicsRepRootPart", phrp)
+        local old = hrp.Velocity         
+        hrp.Velocity = Vector3.new(9e9,9e9,9e9)
+        hrp.CFrame = phrp.CFrame
+        rs.RenderStepped:Wait()
+        hrp.Velocity = old
+    until tick() - start > 0.4 or phum.Health <= 0 or hum.Health <= 0
+    
+    hrp.Velocity = Vector3.zero
+    sethiddenproperty(hrp, "PhysicsRepRootPart", nil)
+    ExtendTime(15)
+end
+
+function Hitbox(pos, size)
+    spawn(function()
+        local p = Instance.new("Part", workspace)
+        p.Anchored = true
+        p.CanTouch = false
+        p.CanQuery = false
+        p.CanCollide = false
+        p.CastShadow = false
+        p.Size = size
+        p.CFrame = typeof(pos) == "CFrame" and pos or CFrame.new(pos)
+        p.Transparency = .85
+        game.Debris:AddItem(p, 1)
+
+        local db = {}
+        local oldpos = hrp.CFrame
+        local got = false
+        for i,v in next, workspace:GetPartsInPart(p) do
+            local pchar = v:FindFirstAncestorOfClass("Model")
+            if pchar and pchar ~= char 
+            and game.Players:GetPlayerFromCharacter(pchar) and not db[pchar] then
+                db[pchar] = true
+                task.spawn(Fling, pchar)
+                got = true
+                task.wait(.6)
+            elseif pchar and pchar ~= char
+            and not game.Players:GetPlayerFromCharacter(pchar) then
+                db[pchar] = true
+                KillNPC(pchar)
+            end
+        end
+        task.wait(.1)
+        if got then 
+            hrp.Anchored = true
+            hrp.CFrame = oldpos
+            task.wait(.1)
+            hrp.Anchored = false
+         end
+    end)
+end
+
+function HitboxLerp(pos, pos2, size)
+    spawn(function()
+        local p = Instance.new("Part", workspace)
+        p.Anchored = true
+        p.CanTouch = false
+        p.CanQuery = false
+        p.CanCollide = false
+        p.CastShadow = false
+        p.Size = size
+        p.CFrame = CFrame.new((pos:Lerp(pos2, .5)), pos2)
+    
+        p.Transparency = .85
+        game.Debris:AddItem(p, 1)
+
+        local db = {}
+        local got = false
+        local oldpos = hrp.CFrame
+        for i,v in next, workspace:GetPartsInPart(p) do
+            local pchar = v:FindFirstAncestorOfClass("Model")
+            if pchar and pchar ~= char 
+            and game.Players:GetPlayerFromCharacter(pchar) and not db[pchar] then
+                db[pchar] = true
+                task.spawn(Fling, pchar)
+                got = true
+                task.wait(.6)
+            elseif pchar and pchar ~= char
+            and not game.Players:GetPlayerFromCharacter(pchar) then
+                db[pchar] = true
+                KillNPC(pchar)
+            end
+        end
+         task.wait(.1)
+         if got then 
+             hrp.Anchored = true
+             hrp.CFrame = oldpos
+             task.wait(.1)
+             hrp.Anchored = false
+         end
+    end)
+end
+
+function HitboxDrag(size, dur)
+    local p = Instance.new("Part", workspace)
+    p.Anchored = true
+    p.CanTouch = false
+    p.CanQuery = false
+    p.CanCollide = false
+    p.CastShadow = false
+    p.Size = size
+    p.CFrame = hrp.CFrame
+    p.Transparency = .85
+    game.Debris:AddItem(p, dur)
+
+    local db = {}
+    local got = false
+    local oldpos = hrp.CFrame
+
+    spawn(function()
+        while p and p.Parent and task.wait() do
+            p.CFrame = hrp.CFrame
+            for i,v in next, workspace:GetPartsInPart(p) do
+                local pchar = v:FindFirstAncestorOfClass("Model")
+                if pchar and pchar ~= char 
+               and game.Players:GetPlayerFromCharacter(pchar) and not db[pchar] then
+                   db[pchar] = true
+                   task.spawn(Fling, pchar)
+                   got = true
+                   task.wait(.6)
+                elseif pchar and pchar ~= char
+                and not game.Players:GetPlayerFromCharacter(pchar) then
+                    db[pchar] = true
+                    KillNPC(pchar)
+                end
+            end
+        end
+        task.wait(.1)
+        if got then 
+            hrp.Anchored = true
+            hrp.CFrame = oldpos
+            task.wait(.1)
+            hrp.Anchored = false
+        end
+    end)
+end
+
+function EndedPrint(instance)
+    spawn(function()
+        instance.Ended:Wait()
+        local h = char.DemiseH
+        h.FillColor = Color3.new(1,1,1)
+        ts:Create(h, TweenInfo.new(.75), {["FillColor"] = Color3.new(0,0,0)}):Play()
+        ToolEnabled = true
+    end)
+end
+
+function Tool()    
+    hum:UnequipTools()
+    for i,v in next, plr.Backpack:GetChildren() do
+        if v:IsA("Tool") and v.Name == "Scythe Slash" then v:Destroy() end
+    end
+    local Tool = Instance.new("Tool", plr.Backpack)
+    Tool.TextureId = "rbxassetid://7152520922"
+    Tool.Name = "Scythe Slash"
+    Tool.RequiresHandle = false
+    Tool.TextureId = "rbxthumb://type=Asset&id=129698138&w=420&h=420"
+    Tool.ToolTip = "I'm sending you straight to hell"
+
+    local Anims = {
+        "203876950",
+        "186934910",
+        "203875401",
+    }
+
+    local db = false
+    Tool.Activated:Connect(function()
+        if db or not ToolEnabled then return end
+        db = true
+        delay(.8, function()
+            db = false
+        end)
+        playsound(4958430453, 5, .9)
+        local attack = loadanim(Anims[math.random(#Anims)])
+        attack:Play(0.1, 999)
+        attack:AdjustSpeed(2)
+        Hitbox(hrp.CFrame, Vector3.new(12.5, 12.5, 12.5))
+        EndedPrint(attack)    
+    end)
+end
+
+function cooldown(button, dur)
+    button.Interactable = false
+    local oldtxt = button.Text
+    
+    local timer = dur
+
+    spawn(function()
+        while timer > 0 and task.wait(0.1) do
+            button.Text = string.format("%.1f", timer)
+            timer -= 0.1
+        end
+        button.Text = oldtxt
+        button.Interactable = true    
+    end)
+end
+
+function Lightning(pos, pos2, segments, delays, distances, color, dur)        
+    local last = pos
+    for i = 1, segments do
+        local alpha = i / segments
+	     local nxt = pos:Lerp(pos2, alpha)
+        if i < segments then
+           nxt += Vector3.new(
+               Random.new():NextNumber(-distances, distances),
+               Random.new():NextNumber(-distances, distances),
+               Random.new():NextNumber(-distances, distances)
+           )
+        end
+        local distance = (nxt - last).Magnitude
+
+   		local p = Instance.new("Part", workspace)
+   		p.Anchored = true
+   		p.CanCollide = false
+   		p.Material = "Neon"
+         p.Color = color
+         p.CastShadow = false
+         p.CanTouch = false
+         p.CanQuery = false
+   		p.Size = Vector3.new(1, 1, distance)
+   		p.CFrame = CFrame.lookAt((last + nxt) / 2, nxt)
+
+         local tw = ts:Create(p, TweenInfo.new(dur), {
+             ["Transparency"] = 1,
+             ["Size"] = Vector3.new(0, 0, distance)
+         })
+         tw:Play()
+         game.Debris:AddItem(p, dur)
+
+        lastPos = nextPos
+        
+        last = nxt
+        local st = tick()
+        repeat task.wait() until tick() - st > delays
+    end
+end
+
+function LightningRandom(dis, times, delay, dist, delay2, dur)
+    spawn(function()
+        for i = 1, times do
+            task.wait(delay)
+            task.spawn(Lightning,
+                hrp.Position, 
+                hrp.Position + Vector3.new(
+                    math.random(-dis, dis),
+                    math.random(-dis, dis),
+                    math.random(-dis, dis)
+                ), 
+                times,
+                delay2,
+                dist,  
+                Color3.new(1,1,1), 
+                dur
+            )
+        end
+    end)
+end
+
+function getclosest()
+    local closest = nil
+    local dist = math.huge
+
+    for i,v in next, game.Players:GetPlayers() do
+        if v ~= plr and v.Character then
+            local phrp = v.Character:FindFirstChild("HumanoidRootPart")
+            if phrp and (hrp.Position - phrp.Position).Magnitude < dist then 
+                dist = (hrp.Position - phrp.Position).Magnitude
+                closest = phrp
+            end
+        end
+    end
+
+    return closest
+end
+
+function shockwave(size, dur)
+    local f = Instance.new("Folder", workspace)
+    f.Name = "Ring of fire " .. tick()
+    local p = Instance.new("Part", f)
+    local d = Instance.new("Decal", p)
+    local mp = Instance.new("MeshPart", f)
+
+    p.Position = hrp.Position
+    p.Size = Vector3.zero
+    p.Transparency = 1
+    p.Anchored = true
+    p.CanCollide = false 
+    p.CastShadow = false
+    p.CanQuery = false
+    p.CanTouch = false
+
+    spawn(function()
+        while p and p.Parent and task.wait() do
+            p.CFrame *= CFrame.Angles(0, math.rad(3), 0)
+        end
+    end)
+
+    d.Texture = "rbxthumb://type=Asset&id=26356342&w=420&h=420"    
+    d.Face = "Top"
+    
+    mp.Size = Vector3.zero
+    mp.MeshId = "rbxassetid://6797156017"
+    mp.Anchored = true
+    mp.Position = hrp.Position
+    mp.CanCollide = false
+    mp.CastShadow = false
+    mp.Transparency = 0.75
+    mp.CanQuery = false
+    mp.Color = Color3.new(1,1,1)
+    mp.CanTouch = false
+    mp.Material = "Neon"
+    
+    ts:Create(p, TweenInfo.new(dur), {
+        ["Size"] = Vector3.new(size * 2.5, 1, size * 2.5),
+    }):Play()
+    ts:Create(d, TweenInfo.new(dur), {
+        ["Transparency"] = 1
+    }):Play()
+    ts:Create(mp, TweenInfo.new(dur), {
+        ["Size"] = Vector3.new(size, 12.5, size),
+        ["Transparency"] = 1
+    }):Play()
+
+    delay(dur, function() f:Destroy() end)
+end
+
+function Gui()
+    pcall(function() gethui().DemiseGui:Destroy() end)
+    local Main = Instance.new("ScreenGui", gethui())
+    Main.Name = "DemiseGui"
+    
+    local MainFrame = Instance.new("Frame", Main)    
+    local Frame = Instance.new("Frame"
