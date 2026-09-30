@@ -1,0 +1,462 @@
+--====================================================================
+-- VOID OVERLORD - V8.3 (ROAR & SHOCKWAVE UPDATE)
+-- Updated
+--====================================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
+local Debris = game:GetService("Debris")
+
+local LocalPlayer = Players.LocalPlayer
+
+--====================================================================
+-- 1. BẢNG ANIMATION ID
+--====================================================================
+local AnimIDs = {
+    Idle = "rbxassetid://93326430026112",      
+    Run = "rbxassetid://139307201297469",       
+    Cast = "rbxassetid://129478724915743",      
+    Shift = "rbxassetid://133631846764964",     
+    Ultimate = "rbxassetid://75767173951160"   
+}
+
+--====================================================================
+-- 2. DỌN UI RÁC & BẢO VỆ
+--====================================================================
+local function cleanOldGUI()
+    pcall(function()
+        for _, v in ipairs(CoreGui:GetChildren()) do if v.Name == "VoidOverlordHub" then v:Destroy() end end
+        for _, v in ipairs(LocalPlayer:WaitForChild("PlayerGui"):GetChildren()) do if v.Name == "VoidOverlordHub" then v:Destroy() end end
+        if gethui then for _, v in ipairs(gethui():GetChildren()) do if v.Name == "VoidOverlordHub" then v:Destroy() end end end
+    end)
+end
+cleanOldGUI()
+
+pcall(function()
+    if hookmetamethod and checkcaller then
+        local oldIndex; oldIndex = hookmetamethod(game, "__index", function(self, key)
+            if not checkcaller() and typeof(self) == "Instance" and self:IsA("Humanoid") then
+                if key == "WalkSpeed" then return 16 end
+                if key == "JumpPower" then return 50 end
+            end
+            return oldIndex(self, key)
+        end)
+        local oldNewIndex; oldNewIndex = hookmetamethod(game, "__newindex", function(self, key, value)
+            if not checkcaller() and typeof(self) == "Instance" and self:IsA("Humanoid") then
+                if key == "WalkSpeed" or key == "JumpPower" then return end
+            end
+            return oldNewIndex(self, key, value)
+        end)
+    end
+end)
+
+local isExecuting = false
+local voidDomainActive = false
+local chamsEnabled = false
+
+local holeCooldown = false
+local shiftCooldown = false
+local domainCooldown = false
+
+--====================================================================
+-- 3. HÀM HỖ TRỢ VFX SIÊU CẤP & UI BẢO VỆ
+--====================================================================
+local function GetCharacterParts()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+    local root = char:WaitForChild("HumanoidRootPart")
+    local anim = hum:WaitForChild("Animator")
+    return char, hum, root, anim
+end
+
+local function protectUI(gui)
+    local success = pcall(function() gui.Parent = gethui() end)
+    if not success then pcall(function() gui.Parent = CoreGui end)
+        if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+    end
+end
+
+local function PlayBlinkEffect(callback)
+    local blinkGui = Instance.new("ScreenGui")
+    blinkGui.Name = "BlinkEffectGui"
+    blinkGui.IgnoreGuiInset = true 
+    protectUI(blinkGui)
+    
+    local topLid = Instance.new("Frame", blinkGui)
+    topLid.BackgroundColor3 = Color3.new(0, 0, 0); topLid.BorderSizePixel = 0
+    topLid.Size = UDim2.new(1.2, 0, 0.6, 0); topLid.Position = UDim2.new(-0.1, 0, -0.6, 0)
+    
+    local botLid = Instance.new("Frame", blinkGui)
+    botLid.BackgroundColor3 = Color3.new(0, 0, 0); botLid.BorderSizePixel = 0
+    botLid.Size = UDim2.new(1.2, 0, 0.6, 0); botLid.Position = UDim2.new(-0.1, 0, 1, 0)
+    
+    TweenService:Create(topLid, TweenInfo.new(0.25, Enum.EasingStyle.Sine), {Position = UDim2.new(-0.1, 0, 0, 0)}):Play()
+    TweenService:Create(botLid, TweenInfo.new(0.25, Enum.EasingStyle.Sine), {Position = UDim2.new(-0.1, 0, 0.4, 0)}):Play()
+    
+    task.wait(0.3)
+    if callback then callback() end
+    
+    TweenService:Create(topLid, TweenInfo.new(0.35, Enum.EasingStyle.Sine), {Position = UDim2.new(-0.1, 0, -0.6, 0)}):Play()
+    TweenService:Create(botLid, TweenInfo.new(0.35, Enum.EasingStyle.Sine), {Position = UDim2.new(-0.1, 0, 1, 0)}):Play()
+    task.delay(0.4, function() blinkGui:Destroy() end)
+end
+
+local function PlayTrackSafely(animId, priority)
+    if not animId or animId == "" then return nil end
+    local success, track = pcall(function()
+        local _, _, _, anim = GetCharacterParts()
+        local animObj = Instance.new("Animation")
+        animObj.AnimationId = animId
+        local tr = anim:LoadAnimation(animObj)
+        tr.Priority = priority or Enum.AnimationPriority.Action
+        tr.Looped = false
+        tr:Play()
+        return tr
+    end)
+    if success then return track end
+end
+
+local function ChangeDefaultAnimation(char, animName, newId)
+    if not newId or newId == "" then return end
+    local animateScript = char:FindFirstChild("Animate")
+    if animateScript then
+        local animValue = animateScript:FindFirstChild(animName)
+        if animValue then
+            for _, animObj in ipairs(animValue:GetChildren()) do
+                if animObj:IsA("Animation") then animObj.AnimationId = newId end
+            end
+        end
+    end
+end
+
+local function RefreshAnimateScript(char)
+    local animateScript = char:FindFirstChild("Animate")
+    local hum = char:FindFirstChild("Humanoid")
+    local animator = hum and hum:FindFirstChild("Animator")
+    if animateScript then
+        animateScript.Disabled = true
+        if animator then for _, track in ipairs(animator:GetPlayingAnimationTracks()) do track:Stop(0) end end
+        task.wait(0.05)
+        animateScript.Disabled = false
+    end
+end
+
+local function SpawnVoidAura(part)
+    if part:FindFirstChild("VoidPermanentAura") then return end
+    local att = Instance.new("Attachment", part)
+    att.Name = "VoidPermanentAura"
+    local pe = Instance.new("ParticleEmitter", att)
+    pe.Texture = "rbxassetid://243098098"
+    pe.Color = ColorSequence.new(Color3.fromRGB(190, 40, 255), Color3.fromRGB(20, 0, 50))
+    pe.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1.5), NumberSequenceKeypoint.new(1, 0)})
+    pe.Lifetime = NumberRange.new(0.6, 1.2)
+    pe.Rate = 60
+    pe.Speed = NumberRange.new(2, 5)
+    pe.SpreadAngle = Vector2.new(360, 360)
+end
+
+local function SpawnGhost(char, cframe, duration)
+    local ghost = Instance.new("Model")
+    ghost.Name = "VoidGhost"
+    for _, part in ipairs(char:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            local p = part:Clone()
+            p.Anchored = true; p.CanCollide = false
+            p.Material = Enum.Material.ForceField
+            p.Color = Color3.fromRGB(170, 0, 255)
+            p.CFrame = cframe * char.HumanoidRootPart.CFrame:ToObjectSpace(part.CFrame)
+            for _, c in ipairs(p:GetChildren()) do
+                if not c:IsA("SpecialMesh") then c:Destroy() end
+            end
+            p.Parent = ghost
+            TweenService:Create(p, TweenInfo.new(duration), {Transparency = 1}):Play()
+        end
+    end
+    ghost.Parent = workspace
+    Debris:AddItem(ghost, duration)
+end
+
+local function SpawnZap(p1, p2)
+    local dist = (p1 - p2).Magnitude
+    local zap = Instance.new("Part")
+    zap.Size = Vector3.new(0.3, dist, 0.3)
+    zap.Material = Enum.Material.Neon
+    zap.Color = Color3.fromRGB(200, 100, 255)
+    zap.CanCollide = false; zap.Anchored = true
+    zap.CFrame = CFrame.lookAt(p1, p2) * CFrame.new(0, 0, -dist/2)
+    zap.Parent = workspace
+    TweenService:Create(zap, TweenInfo.new(0.25), {Size = Vector3.new(0, dist, 0), Transparency = 1}):Play()
+    Debris:AddItem(zap, 0.25)
+end
+
+local function CreateShockwaveRing(pos, color, endSize, duration)
+    local ring = Instance.new("Part")
+    ring.Shape = Enum.PartType.Cylinder
+    ring.Size = Vector3.new(0.2, 1, 1)
+    ring.Material = Enum.Material.Neon
+    ring.Color = color
+    ring.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90))
+    ring.CanCollide = false; ring.Anchored = true
+    ring.Parent = workspace
+    TweenService:Create(ring, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = Vector3.new(0.2, endSize, endSize),
+        Transparency = 1
+    }):Play()
+    Debris:AddItem(ring, duration)
+end
+
+--====================================================================
+-- 4. GIAO DIỆN
+--====================================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "VoidOverlordHub"
+ScreenGui.ResetOnSpawn = false
+protectUI(ScreenGui)
+
+local IntroFrame = Instance.new("Frame", ScreenGui)
+IntroFrame.Size = UDim2.new(0, 420, 0, 240)
+IntroFrame.Position = UDim2.new(0.5, -210, 0.5, -120)
+IntroFrame.BackgroundColor3 = Color3.fromRGB(12, 6, 22)
+IntroFrame.BorderSizePixel = 0
+Instance.new("UICorner", IntroFrame).CornerRadius = UDim.new(0, 16)
+
+local IntroStroke = Instance.new("UIStroke", IntroFrame)
+IntroStroke.Color = Color3.fromRGB(160, 30, 255)
+IntroStroke.Thickness = 2.5
+
+local IntroGlow = Instance.new("ImageLabel", IntroFrame)
+IntroGlow.Size = UDim2.new(1, 60, 1, 60)
+IntroGlow.Position = UDim2.new(0, -30, 0, -30)
+IntroGlow.BackgroundTransparency = 1
+IntroGlow.Image = "rbxassetid://6014261993"
+IntroGlow.ImageColor3 = Color3.fromRGB(130, 0, 255)
+IntroGlow.ImageTransparency = 0.6
+
+local TitleLabel = Instance.new("TextLabel", IntroFrame)
+TitleLabel.Size = UDim2.new(1, 0, 0, 50)
+TitleLabel.Position = UDim2.new(0, 0, 0.1, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "VOID OVERLORD"
+TitleLabel.Font = Enum.Font.GothamBlack
+TitleLabel.TextSize = 30
+TitleLabel.TextColor3 = Color3.fromRGB(200, 100, 255)
+
+local SubTitleLabel = Instance.new("TextLabel", IntroFrame)
+SubTitleLabel.Size = UDim2.new(1, 0, 0, 24)
+SubTitleLabel.Position = UDim2.new(0, 0, 0.32, 0)
+SubTitleLabel.BackgroundTransparency = 1
+SubTitleLabel.Text = "Master of Space & Gravitational Singularity"
+SubTitleLabel.Font = Enum.Font.GothamSemibold
+SubTitleLabel.TextColor3 = Color3.fromRGB(170, 160, 210)
+SubTitleLabel.TextSize = 13
+
+local LineDivider = Instance.new("Frame", IntroFrame)
+LineDivider.Size = UDim2.new(0.8, 0, 0, 2)
+LineDivider.Position = UDim2.new(0.1, 0, 0.48, 0)
+LineDivider.BackgroundColor3 = Color3.fromRGB(150, 40, 255)
+LineDivider.BorderSizePixel = 0
+
+local CreditLabel = Instance.new("TextLabel", IntroFrame)
+CreditLabel.Size = UDim2.new(1, 0, 0, 20)
+CreditLabel.Position = UDim2.new(0, 0, 0.84, 0)
+CreditLabel.BackgroundTransparency = 1
+CreditLabel.Text = "Animation by KageFloppey"
+CreditLabel.Font = Enum.Font.Gotham
+CreditLabel.TextColor3 = Color3.fromRGB(120, 100, 180)
+CreditLabel.TextSize = 11
+
+local YtLabel = Instance.new("TextLabel", IntroFrame)
+YtLabel.Size = UDim2.new(0, 120, 0, 15)
+YtLabel.Position = UDim2.new(1, -130, 1, -22)
+YtLabel.BackgroundTransparency = 1
+YtLabel.Text = "Youtube: KageFloppey"
+YtLabel.Font = Enum.Font.GothamBold
+YtLabel.TextColor3 = Color3.fromRGB(180, 120, 255)
+YtLabel.TextSize = 10
+YtLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+local StartBtn = Instance.new("TextButton", IntroFrame)
+StartBtn.Size = UDim2.new(0, 220, 0, 48)
+StartBtn.Position = UDim2.new(0.5, -110, 0.56, 0)
+StartBtn.BackgroundColor3 = Color3.fromRGB(130, 0, 240)
+StartBtn.Text = "AWAKEN POWER"
+StartBtn.Font = Enum.Font.GothamBold
+StartBtn.TextSize = 15
+StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 10)
+
+RunService.RenderStepped:Connect(function()
+    if TitleLabel and TitleLabel.Parent then 
+        TitleLabel.TextColor3 = Color3.fromHSV((tick() % 4) / 4, 0.8, 1) 
+    end
+end)
+
+-- MAIN MENU
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 200, 0, 235) 
+MainFrame.Position = UDim2.new(0.06, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 5, 18)
+MainFrame.BackgroundTransparency = 0.15
+MainFrame.Active = true; MainFrame.Visible = false
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = Color3.fromRGB(150, 20, 255)
+
+local TopBar = Instance.new("Frame", MainFrame)
+TopBar.Size = UDim2.new(1, 0, 0, 32)
+TopBar.BackgroundColor3 = Color3.fromRGB(25, 12, 45)
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 12)
+
+local TopTitle = Instance.new("TextLabel", TopBar)
+TopTitle.Size = UDim2.new(1, 0, 1, 0)
+TopTitle.BackgroundTransparency = 1
+TopTitle.Text = "Void Overlord Hub"
+TopTitle.Font = Enum.Font.GothamBold
+TopTitle.TextColor3 = Color3.fromRGB(220, 170, 255)
+TopTitle.TextSize = 12
+
+local ButtonContainer = Instance.new("Frame", MainFrame)
+ButtonContainer.Size = UDim2.new(1, 0, 1, -38)
+ButtonContainer.Position = UDim2.new(0, 0, 0, 38)
+ButtonContainer.BackgroundTransparency = 1
+local UIListLayout = Instance.new("UIListLayout", ButtonContainer)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 6)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local function CreateButton(text, layoutOrder)
+    local btn = Instance.new("TextButton", ButtonContainer)
+    btn.Size = UDim2.new(0.92, 0, 0, 34)
+    btn.LayoutOrder = layoutOrder
+    btn.Text = text
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 10
+    btn.TextColor3 = Color3.fromRGB(240, 220, 255)
+    btn.BackgroundColor3 = Color3.fromRGB(24, 16, 38)
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+local DragBtn = CreateButton("DRAG MENU: OFF", 1)
+local ChamsBtn = CreateButton("VOID CHAMS (ESP)", 2)
+local HoleBtn = CreateButton("EVENT HORIZON", 3)
+local ShiftBtn = CreateButton("VOID SHIFT", 4)
+local DomainBtn = CreateButton("CELESTIAL COLLAPSE", 5)
+
+local dragEnabled, dragging, dragInput, dragStart, startPos = false
+TopBar.InputBegan:Connect(function(input)
+    if dragEnabled and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        dragging = true; dragStart = input.Position; startPos = MainFrame.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+    end
+end)
+TopBar.InputChanged:Connect(function(input) if dragEnabled and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then dragInput = input end end)
+UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then local delta = input.Position - dragStart; MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
+
+DragBtn.MouseButton1Click:Connect(function()
+    dragEnabled = not dragEnabled
+    DragBtn.Text = dragEnabled and "DRAG MENU: ON" or "DRAG MENU: OFF"
+    DragBtn.BackgroundColor3 = dragEnabled and Color3.fromRGB(140, 0, 220) or Color3.fromRGB(24, 16, 38)
+end)
+
+local function UpdateChams()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local existing = p.Character:FindFirstChild("VoidChams")
+            if chamsEnabled and not existing then
+                local hl = Instance.new("Highlight")
+                hl.Name = "VoidChams"; hl.FillColor = Color3.fromRGB(160, 0, 255); hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                hl.FillTransparency = 0.5; hl.OutlineTransparency = 0; hl.Parent = p.Character
+            elseif not chamsEnabled and existing then existing:Destroy()
+            end
+        end
+    end
+end
+
+ChamsBtn.MouseButton1Click:Connect(function()
+    chamsEnabled = not chamsEnabled
+    PlayBlinkEffect(function()
+        ChamsBtn.Text = chamsEnabled and "VOID CHAMS: ON" or "VOID CHAMS: OFF"
+        ChamsBtn.BackgroundColor3 = chamsEnabled and Color3.fromRGB(140, 0, 220) or Color3.fromRGB(24, 16, 38)
+        UpdateChams()
+    end)
+end)
+
+--====================================================================
+-- KỸ NĂNG 1: EVENT HORIZON (HỐ ĐEN TỬ THẦN)
+--====================================================================
+HoleBtn.MouseButton1Click:Connect(function()
+    if isExecuting or holeCooldown then return end
+    isExecuting = true; holeCooldown = true
+    
+    local char, hum, root = GetCharacterParts()
+    PlayTrackSafely(AnimIDs.Cast, Enum.AnimationPriority.Action)
+    
+    -- DELAY GỒNG CHIÊU 2 GIÂY
+    task.wait(2.1)
+    if not root or not root.Parent or hum.Health <= 0 then 
+        isExecuting = false; holeCooldown = false; return 
+    end
+    
+    local orb = Instance.new("Part")
+    orb.Shape = Enum.PartType.Ball; orb.Size = Vector3.new(4, 4, 4)
+    orb.Material = Enum.Material.Neon; orb.Color = Color3.fromRGB(180, 0, 255)
+    orb.CanCollide = false; orb.Anchored = true; orb.CFrame = root.CFrame * CFrame.new(0, 1, -4)
+    orb.Parent = workspace
+    
+    local orbLight = Instance.new("PointLight", orb)
+    orbLight.Color = Color3.fromRGB(200, 50, 255); orbLight.Range = 25; orbLight.Brightness = 5
+    
+    local orbAtt = Instance.new("Attachment", orb)
+    local trail = Instance.new("Trail", orb)
+    trail.Attachment0 = orbAtt; trail.Attachment1 = Instance.new("Attachment", orb, CFrame.new(0, 0, 1))
+    trail.Color = ColorSequence.new(Color3.fromRGB(200, 50, 255), Color3.fromRGB(80, 0, 150))
+    trail.Lifetime = 0.5; trail.WidthScale = NumberSequence.new({NumberSequenceKeypoint.new(0, 2.5), NumberSequenceKeypoint.new(1, 0)})
+    
+    local orbParticles = Instance.new("ParticleEmitter", orbAtt)
+    orbParticles.Texture = "rbxassetid://243098098"; orbParticles.Color = ColorSequence.new(Color3.fromRGB(220, 100, 255))
+    orbParticles.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 2.5), NumberSequenceKeypoint.new(1, 0)})
+    orbParticles.Lifetime = NumberRange.new(0.3, 0.6); orbParticles.Rate = 200; orbParticles.Speed = NumberRange.new(5, 20); orbParticles.SpreadAngle = Vector2.new(360, 360)
+    
+    local maxDist = 150; local speed = 130; local startCFrame = orb.CFrame; local targetPos = nil
+    
+    local zapTask = task.spawn(function()
+        while orb and orb.Parent do
+            local pPrev = orb.Position; task.wait(0.06)
+            if orb and orb.Parent then SpawnZap(pPrev, orb.Position) end
+        end
+    end)
+    
+    local flightConn
+    flightConn = RunService.Heartbeat:Connect(function(dt)
+        if not orb or not orb.Parent then flightConn:Disconnect() return end
+        local step = speed * dt
+        local ray = workspace:Raycast(orb.Position, orb.CFrame.LookVector * step)
+        
+        if ray and ray.Instance and ray.Instance.CanCollide then
+            targetPos = ray.Position; orb.Position = targetPos; flightConn:Disconnect()
+        else
+            orb.CFrame = orb.CFrame + orb.CFrame.LookVector * step
+            if (orb.Position - startCFrame.Position).Magnitude >= maxDist then
+                targetPos = orb.Position; flightConn:Disconnect()
+            end
+        end
+    end)
+    
+    while not targetPos do task.wait(0.02) end
+    pcall(function() task.cancel(zapTask) end)
+    
+    local blackHole = Instance.new("Part")
+    blackHole.Shape = Enum.PartType.Ball; blackHole.Size = Vector3.new(4, 4, 4)
+    blackHole.Material = Enum.Material.SmoothPlastic; blackHole.Color = Color3.new(0, 0, 0)
+    blackHole.CanCollide = false; blackHole.Anchored = true; blackHole.Position = targetPos; blackHole.Parent = workspace
+    
+    local bhLight = Instance.new("PointLight", blackHole)
+    bhLight.Color = Color3.fromRGB(150, 0, 255); bhLight.Range = 60; bhLight.Brightness = 8
+    
+    local distortion = Instance.new("Part")
+    distortion.Shape = Enum.PartType.Ball; distortion.Size = Vector3.new(5, 5,
